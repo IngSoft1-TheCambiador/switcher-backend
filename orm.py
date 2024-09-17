@@ -1,5 +1,6 @@
 from random import shuffle, choice
-from pony.orm import Database, PrimaryKey, Required, Set, Optional, db_session, select, commit
+from pony.orm import Database, PrimaryKey, Required, Set, Optional
+from pony.orm import db_session, select, commit
 
 db = Database()
 
@@ -62,6 +63,7 @@ class Game(db.Entity):
     @db_session    
     def add_player(self, player):
         self.players.add(player)
+
     @db_session          
     def remove_player(self, player):
         pass
@@ -85,12 +87,18 @@ class Game(db.Entity):
         for p in self.players:
             all_ids.append(p.id)
         shuffle(all_ids)
+        next_id = {}
+        for index in range(len(all_ids)):
+            current_id = all_ids[index]
+            next_id[current_id] =  all_ids[(index + 1) % len(all_ids)]
+        for player in self.players:
+            player.next = next_id[player.id]
+        # Set player colors
         colors = ["r", "g", "b", "y"]
         shuffle(colors)
         for position, player in enumerate(self.players):
-            next_id = all_ids[(position + 1) % len(all_ids)]
-            player.next = next_id
-            player.color = colors[position]
+            player.next = next_id[player.id]
+
         # Set current_player
         self.current_player_id = choice(all_ids)
         commit()
@@ -101,29 +109,19 @@ class Game(db.Entity):
 
     @db_session            
     def exchange_blocks(self, i, j, k, l):
-        first_color = self.board[i * 6 + j]
-        second_color = self.board[k * 6 + l]
-        self.board[i * 6 + j] = second_color
-        self.board[k * 6 + l] = first_color
+        board = list(self.board)
+        first_color = board[i * 6 + j]
+        second_color = board[k * 6 + l]
+        board[i * 6 + j] = second_color
+        board[k * 6 + l] = first_color
+        self.board = "".join(board)
+        commit()
 
     @db_session        
     def end_turn(self):
         current_player = Player.get(id=self.current_player_id)
         self.current_player_id = current_player.next
+        commit()
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
-
-def quick_test():
-    with db_session:
-        lala = Game(name="some game")
-        lala.create_player("Martin")
-        lala.create_player("Jorge")
-        lala.create_player("Unga")
-        lala.initialize()
-        print(lala.board)
-        for p in lala.players:
-           print("id: ",  p.id, "name: ", p.name, "next: ", p.next, "color: ", p.color)
-        print("Current: ", lala.current_player_id)
-        
-quick_test()
