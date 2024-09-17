@@ -20,6 +20,11 @@ class Player(db.Entity):
     moves = Set("Move", reverse="owner")
     shapes = Set(Shape, reverse="owner")
 
+    def assign_movs(self):
+        pass
+    def assign_shapes(self):
+        pass
+
 class Game(db.Entity):
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
@@ -29,6 +34,17 @@ class Game(db.Entity):
     owner_id = Required(int)
     current_player_id = Required(int)
     players = Set(Player, reverse="game")
+
+    def add_player(self):
+        pass
+    def delete_player(self):
+        pass
+    def start(self):
+        pass
+    def end(self):
+        pass
+    def init_board(self):
+        pass
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
