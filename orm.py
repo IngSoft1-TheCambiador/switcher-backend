@@ -19,6 +19,7 @@ class Move(db.Entity):
 
 class Player(db.Entity):
     id = PrimaryKey(int, auto=True)
+    color = Optional(str)
     name = Required(str)
     game = Required("Game", reverse="players")
     moves = Set("Move", reverse="owner")
@@ -84,9 +85,12 @@ class Game(db.Entity):
         for p in self.players:
             all_ids.append(p.id)
         shuffle(all_ids)
+        colors = ["r", "g", "b", "y"]
+        shuffle(colors)
         for position, player in enumerate(self.players):
             next_id = all_ids[(position + 1) % len(all_ids)]
             player.next = next_id
+            player.color = colors[position]
         # Set current_player
         self.current_player_id = choice(all_ids)
         commit()
@@ -119,7 +123,7 @@ def quick_test():
         lala.initialize()
         print(lala.board)
         for p in lala.players:
-           print("id: ",  p.id, "name: ", p.name, "next: ", p.next)
+           print("id: ",  p.id, "name: ", p.name, "next: ", p.next, "color: ", p.color)
         print("Current: ", lala.current_player_id)
         
 quick_test()
