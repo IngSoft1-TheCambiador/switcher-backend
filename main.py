@@ -4,6 +4,7 @@ from orm import Game, Player
 
 app = FastAPI()
 
+# Response field names
 PLAYER_ID = "player_id"
 GAME_ID = "game_id"
 PAGE_INTERVAL = 8 # Number of games listed per page
@@ -11,6 +12,8 @@ GAME_NAME = "game_name"
 GAME_MIN = "min_players"
 GAME_MAX = "max_players"
 GAMES_LIST = "games_list"
+# Error details
+GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
 
 @app.get("/")
 async def root():
@@ -30,4 +33,18 @@ def list_games(page=1):
                 GAME_MIN : game.min_players,
                 GAME_MAX : game.max_players}
             response_data.append(game_row)
+
+@app.put("/create_game/")
+def create_game(game_name, player_name, min_players=2, max_players=4):
+    try:
+        with db_session:
+            new_game = Game(name=game_name)
+            player_id = new_game.create_player(player_name)
+            new_game.owner_id = player_id
+            game_id = new_game.id
+            game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
+            return game_data
+    except:
+        raise HTTPException(status_code=400,
+                            detail=GENERIC_SERVER_ERROR)
     return { GAMES_LIST : response_data }
