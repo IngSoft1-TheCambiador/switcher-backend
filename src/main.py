@@ -39,7 +39,6 @@ def join_game(request: JoinGameRequest):
     with db_session:
         # Retrieve the game by its ID
         game = Game.get(id=request.game_id)
-        player = Player.get(id=request.player_id)
         
         # Check if the game exists
         if not game:
@@ -49,9 +48,11 @@ def join_game(request: JoinGameRequest):
         if len(game.players) >= game.max_players:
             return {"error": "Game is already full"}
 
-        # Create a new player and associate with the game
-        player_id = game.add_player(player)
+        if request.player_name in game.players:
+            return{"error" : "A player with this name already exists in the game"}
+
+        p = Player(name=request.player_name, game = game)
 
         return {
-            "message": f"Player {request.player_id} successfully joined the game {request.game_id}",
+            "message": f"Player {p.id} successfully joined the game {request.game_id}",
         }
