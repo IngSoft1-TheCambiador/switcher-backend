@@ -123,5 +123,16 @@ class Game(db.Entity):
         self.current_player_id = current_player.next
         commit()
 
+    # static, useful for testing
+    @db_session
+    def delete_all_games():
+        Game.select().delete(bulk=True)
+
+    @db_session 
+    def dump_players(self):
+        print(f"Dumping players of game {self.id}")
+        for p in self.players:
+            print(p.name)
+
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)

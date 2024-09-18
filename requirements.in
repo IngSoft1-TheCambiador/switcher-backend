@@ -3,3 +3,4 @@ fastapi
 uvicorn
 pony
 fastapi[standard]
+requests
