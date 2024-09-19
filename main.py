@@ -33,6 +33,7 @@ def list_games(page=1):
                 GAME_MIN : game.min_players,
                 GAME_MAX : game.max_players}
             response_data.append(game_row)
+        return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
 def create_game(game_name, player_name, min_players=2, max_players=4):
@@ -47,4 +48,3 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
     except:
         raise HTTPException(status_code=400,
                             detail=GENERIC_SERVER_ERROR)
-    return { GAMES_LIST : response_data }
