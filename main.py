@@ -3,6 +3,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from connections import ConnectionManager
 from pony.orm import db_session
 from orm import Game, Player
+from fastapi.testclient import TestClient
 
 app = FastAPI()
 
@@ -56,8 +57,13 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
     await manager.connect(websocket)
+    await websocket.send_json({"msg": "Hello WebSocket"})
     try:
         while True:
-            await asyncio.sleep(0.5)
+            # will remove later because the client
+            # doesnt use their websocket to send
+            # data to the server, but the other 
+            # way around
+            data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
