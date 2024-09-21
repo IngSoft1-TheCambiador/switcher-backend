@@ -1,15 +1,20 @@
 from random import choice
 from orm import Game, Player, db_session
+from main import list_games
+import requests
+
 
 def test_game_creation():
+    print("Asserting game creation...\nAttempting to create game with three players...")
     with db_session:
-        sample = Game(name="some game")
-        sample.create_player("Martin")
-        sample.create_player("Jorge")
-        sample.create_player("Unga")
-        assert len(sample.players) == 3
+        Game.delete_all_games()
+        sample_game = Game(name="some game")
+        sample_game.create_player("Martin")
+        sample_game.create_player("Jorge")
+        sample_game.create_player("Unga")
+        assert len(sample_game.players) == 3
         names = set()
-        for p in sample.players:
+        for p in sample_game.players:
             names.add(p.name)
         assert "Martin" in names
         assert "Jorge" in names
@@ -89,4 +94,4 @@ def quick_showcase():
         for p in sample.players:
             print(p.name) 
 
-quick_showcase()
+#quick_showcase()
