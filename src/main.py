@@ -33,7 +33,6 @@ def list_games(page=1):
             response_data.append(game_row)
     return { GAMES_LIST : response_data }
 
-
 @app.post("/join-game")
 def join_game(request: JoinGameRequest):
     with db_session:

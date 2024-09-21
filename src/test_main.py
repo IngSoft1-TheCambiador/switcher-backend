@@ -4,6 +4,7 @@ from models import JoinGameRequest
 from test_orm import test_game_creation
 from main import join_game
 from orm import Game, Player, db_session
+from test_orm import test_game_creation
 
 def test_game_listing():
     test_game_creation()
@@ -69,3 +70,4 @@ def test_join_game():
   
 #test_game_listing()
 test_join_game()
+test_game_listing()
