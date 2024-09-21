@@ -1,8 +1,12 @@
-from fastapi import FastAPI
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from connections import ConnectionManager
 from pony.orm import db_session
 from orm import Game, Player
 
 app = FastAPI()
+
+manager = ConnectionManager()
 
 # Response field names
 PLAYER_ID = "player_id"
@@ -48,3 +52,12 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
     except:
         raise HTTPException(status_code=400,
                             detail=GENERIC_SERVER_ERROR)
+
+@app.websocket("/ws/connect")
+async def connect(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
