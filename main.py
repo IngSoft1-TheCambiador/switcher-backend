@@ -61,11 +61,13 @@ def leave_game(game_id : int, player_name : str):
         game = Game.get(id=game_id)
 
         if game is None:
+            print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         
         p = next(( p for p in game.players if p.name == player_name ), None)
         
         if p is None:
+            print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
 
         if len(game.players) == 2:
@@ -131,4 +133,35 @@ def join_game(game_id, player_name):
                 "game_id": game.id,
                 "message": f"Player {pid} joined the game {game_id}"
                 })
+
+@app.get("/game_state")
+def game_state(game_id : int):
+    with db_session:
+        game = Game.get(id=game_id)
+        
+        if game is None:
+            print("Game not found. Rasing HTTP Exception 400")
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+
+        f_cards, m_cards, names, colors = {}, {}, {}, {}
+        player_ids = []
+        for p in game.players:
+            player_ids.append(p.id)
+            f_cards[p.id] = p.shapes
+            m_cards[p.id] = p.moves
+            names[p.id] = p.name
+            colors[p.id] = p.color
+
+        return({
+            "initialized":  game.is_init,
+            "player_ids": player_ids,
+            "current_player": game.current_player_id,
+            "player_names": names,
+            "player_colors": colors,
+            "player_f_cards": f_cards,
+            "player_m_cards": m_cards
+            })
+
+
+
 
