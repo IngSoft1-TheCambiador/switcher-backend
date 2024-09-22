@@ -67,3 +67,30 @@ async def connect(websocket: WebSocket):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+@app.post("/join-game")
+def join_game(request: JoinGameRequest):
+    with db_session:
+        # Retrieve the game by its ID
+        game = Game.get(id=request.game_id)
+        
+        # Check if the game exists
+        if not game:
+            return {"error": "Game not found"}
+        
+        # Check if the game has enough room for another player
+        if len(game.players) >= game.max_players:
+            return {"error": "Game is already full"}
+
+        if request.player_name in [ p.name for p in game.players ]:
+            return{"error" : "A player with this name already exists in the game"}
+
+        p = Player(name=request.player_name, game = game)
+
+        return ({
+                "player_id": p.id,
+                "game_id": game.id,
+                "message": f"Player {p.id} joined the game {request.game_id}"
+                })
+
