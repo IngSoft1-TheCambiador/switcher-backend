@@ -58,11 +58,28 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
 @app.post("/leave_game")
 def leave_game(game_id : int, player_name : str):
     with db_session:
-        # we should check if player is in game
+        # somewhat ugly code raising the exception at two different places...
         game = Game.get(id=game_id)
-        p = next(p for p in game.players if p.name == player_name)
+
+        if game is None:
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+        
+        p = next(( p for p in game.players if p.name == player_name ), None)
+        
+        if p is None:
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+
+        if len(game.players) == 2:
+            # Handle: ganador por abandono
+            pass
+
+        if len(game.players) == 1:
+            # Handle: el creador abandono antes de que se una nadie
+            pass
+
         game.players.remove(p)
         p.delete()
+
         return(
                 {GAME_ID : game_id, 
                  "message": f"Succesfully removed player {player_name} from game {game_id}"}

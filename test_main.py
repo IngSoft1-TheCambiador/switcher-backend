@@ -41,14 +41,22 @@ def test_leave_game():
     with db_session:
         r = requests.put(f"http://127.0.0.1:8000/create_game?game_name=abc&player_name=ThePlayer").json()
         game = Game.get(id=r["game_id"])
-        # Show players prior to joining NewGuy
+        # Show players prior to joining SillyGuy
         requests.get(f"http://127.0.0.1:8000/list_players?game_id={game.id}")
-        requests.post(f"http://127.0.0.1:8000/join_game?game_id={game.id}&player_name=NewGuy")
-        # Show players after joining NewGuy
+        jr = requests.post(f"http://127.0.0.1:8000/join_game?game_id={game.id}&player_name=SillyGuy").json()
+        # Show players after joining SillyGuy
         requests.get(f"http://127.0.0.1:8000/list_players?game_id={game.id}")
-        requests.post(f"http://127.0.0.1:8000/leave_game?game_id={game.id}&player_name=NewGuy")
-        # Show players after removing NewGuy
+        requests.post(f"http://127.0.0.1:8000/leave_game?game_id={game.id}&player_name=SillyGuy")
+        # Show players after removing SillyGuy
         requests.get(f"http://127.0.0.1:8000/list_players?game_id={game.id}")
+
+        # assert that removed player no longer exists in database
+        assert Player.get(id = jr["player_id"]) is None
+
+        
+        requests.post(f"http://127.0.0.1:8000/leave_game?game_id={game.id}&player_name=AGuyThatDoesntExist")
+        requests.post(f"http://127.0.0.1:8000/leave_game?game_id={game.id + 10000}&player_name=ThePlayer")
+
         
 
 
