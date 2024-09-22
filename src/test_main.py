@@ -1,8 +1,8 @@
 import requests
 
-from models import JoinGameRequest
+from models import JoinGameRequest, CreateGameRequest
 from test_orm import test_game_creation
-from main import join_game
+from main import join_game, create_game
 from orm import Game, Player, db_session
 
 def test_game_listing():
@@ -66,6 +66,29 @@ def test_join_game():
 
         print("All assertions passed. Success")
 
+def test_create_game_endpint():
+    with db_session():
+        print("\nShowing games at root/list_games in JSON format.")
+        games = requests.get("http://127.0.0.1:8000/list_games").json()
+        print(games)
+        
+        print("\nProceeding to create game.")
+
+        req = CreateGameRequest(player_name = "Clark, the creator",
+                                game_name = "Clark's game")
+
+        create_game(req)
+        print("\nShowing games at root/list_games in JSON format.")
+        games = requests.get("http://127.0.0.1:8000/list_games").json()
+        print(games)
+        game = Game[1]
+        game.dump_players()
+
+        assert "Clark, the creator" in [p.name for p in game.players]
+        assert len(game.players) == 1
+
+
   
 #test_game_listing()
-test_join_game()
+#test_join_game()sd
+test_create_game_endpint()

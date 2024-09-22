@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from pony.orm import db_session
+from pony.orm import db_session, commit
 from orm import Game, Player
-from models import JoinGameRequest
+from models import JoinGameRequest, CreateGameRequest
 
 app = FastAPI()
 
@@ -33,6 +33,32 @@ def list_games(page=1):
             response_data.append(game_row)
     return { GAMES_LIST : response_data }
 
+@app.post("/create-game")
+def create_game(request: CreateGameRequest):
+
+    with db_session:
+        game = Game(name = request.game_name)
+        commit()
+        print(game.id)
+    
+        # join_game already creates the new Player object
+        join_game_response = join_game(JoinGameRequest(game_id =  game.id, 
+                                  player_name = request.player_name))
+    
+        game.owner_id = join_game_response["player_id"]
+    
+        if request.min_players != None:
+            game.min_players = request.min_players 
+        if request.max_players != None:
+            game.max_players = request.max_players 
+    
+        return ({
+                "player_id": game.owner_id,
+                "game_id": game.id,
+                "message": f"Player {game.owner_id} owns the new game {game.id}"
+                })
+
+
 
 @app.post("/join-game")
 def join_game(request: JoinGameRequest):
@@ -53,6 +79,10 @@ def join_game(request: JoinGameRequest):
 
         p = Player(name=request.player_name, game = game)
 
-        return {
-            "message": f"Player {p.id} successfully joined the game {request.game_id}",
-        }
+        return ({
+                "player_id": p.id,
+                "game_id": game.id,
+                "message": f"Player {p.id} joined the game {request.game_id}"
+                })
+
+
