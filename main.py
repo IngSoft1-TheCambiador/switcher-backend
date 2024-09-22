@@ -1,9 +1,10 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from connections import ConnectionManager
-from pony.orm import db_session
+from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
+from models import JoinGameRequest
 
 app = FastAPI()
 
@@ -54,6 +55,27 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
         raise HTTPException(status_code=400,
                             detail=GENERIC_SERVER_ERROR)
 
+@app.post("/leave_game")
+def leave_game(game_id : int, player_name : str):
+    with db_session:
+        # we should check if player is in game
+        game = Game.get(id=game_id)
+        p = next(p for p in game.players if p.name == player_name)
+        game.players.remove(p)
+        p.delete()
+        return(
+                {GAME_ID : game_id, 
+                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
+                )
+
+@app.get("/list_players")
+def list_players(game_id : int):
+    with db_session:
+        g = Game.get(id=game_id)
+        g.dump_players()
+        return {"Players": [p.name for p in g.players]}
+
+
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
     await manager.connect(websocket)
@@ -69,11 +91,11 @@ async def connect(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
-@app.post("/join-game")
-def join_game(request: JoinGameRequest):
+@app.post("/join_game")
+def join_game(game_id, player_name):
     with db_session:
         # Retrieve the game by its ID
-        game = Game.get(id=request.game_id)
+        game = Game.get(id=game_id)
         
         # Check if the game exists
         if not game:
@@ -83,14 +105,14 @@ def join_game(request: JoinGameRequest):
         if len(game.players) >= game.max_players:
             return {"error": "Game is already full"}
 
-        if request.player_name in [ p.name for p in game.players ]:
+        if player_name in [ p.name for p in game.players ]:
             return{"error" : "A player with this name already exists in the game"}
 
-        p = Player(name=request.player_name, game = game)
+        pid = game.create_player(player_name)
 
         return ({
-                "player_id": p.id,
+                "player_id": pid,
                 "game_id": game.id,
-                "message": f"Player {p.id} joined the game {request.game_id}"
+                "message": f"Player {pid} joined the game {game_id}"
                 })
 

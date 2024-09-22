@@ -122,6 +122,13 @@ class Game(db.Entity):
         current_player = Player.get(id=self.current_player_id)
         self.current_player_id = current_player.next
         commit()
+        
+    # just a helper for debugging
+    @db_session 
+    def dump_players(self):
+        print(f"Dumping players of game {self.id}")
+        for p in self.players:
+            print(p.name)
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
