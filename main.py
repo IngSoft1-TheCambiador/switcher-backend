@@ -4,7 +4,6 @@ from connections import ConnectionManager
 from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
-from models import JoinGameRequest
 
 app = FastAPI()
 
