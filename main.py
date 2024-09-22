@@ -66,4 +66,4 @@ async def connect(websocket: WebSocket):
             # way around
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
