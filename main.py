@@ -56,8 +56,8 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
 
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
-    await manager.connect(websocket)
-    await websocket.send_json({"msg": "Hello WebSocket"})
+    socket_id = await manager.connect(websocket)
+    await websocket.send_json({manager.current_id: "Hello WebSocket"})
     try:
         while True:
             # will remove later because the client
@@ -66,4 +66,4 @@ async def connect(websocket: WebSocket):
             # way around
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        await manager.disconnect(websocket)
+        manager.disconnect(socket_id)
