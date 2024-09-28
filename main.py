@@ -96,8 +96,8 @@ def list_players(game_id : int):
 
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
-    await manager.connect(websocket)
-    await websocket.send_json({"msg": "Hello WebSocket"})
+    socket_id = await manager.connect(websocket)
+    await websocket.send_json({manager.current_id: "Hello WebSocket"})
     try:
         while True:
             # will remove later because the client
