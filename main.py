@@ -4,6 +4,7 @@ from connections import ConnectionManager
 from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -19,6 +20,15 @@ GAME_MAX = "max_players"
 GAMES_LIST = "games_list"
 # Error details
 GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
+
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
