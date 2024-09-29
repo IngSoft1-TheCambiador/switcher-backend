@@ -60,13 +60,10 @@ class Game(db.Entity):
         commit()
         return player.id
 
-    @db_session    
-    def add_player(self, player):
-        self.players.add(player)
-
     @db_session          
-    def remove_player(self, player):
-        pass
+    def remove_player(self, player_name):
+        player = Player.get(name=player_name, game=self)
+        self.players.remove(player)
 
     @db_session            
     def start(self):
@@ -78,6 +75,7 @@ class Game(db.Entity):
 
     @db_session            
     def initialize(self):
+        self.is_init = True
         # Set board state
         board = list(self.board)
         shuffle(board)
