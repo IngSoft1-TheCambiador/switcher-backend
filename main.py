@@ -175,5 +175,15 @@ def game_state(game_id : int):
             "player_m_cards": m_cards
             })
 
-
+@app.put("/start_game")
+def start_game(game_id : int):
+    try:
+        with db_session:
+            game_id = int(game_id)
+            game = Game[game_id]
+            game.initialize()
+            return {"message" : f"Starting {game_id}"}
+    except:
+        raise HTTPException(status_code=400,
+                            detail=f"Failed to initialize game {game_id}")
 
