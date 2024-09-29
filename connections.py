@@ -26,6 +26,7 @@ class ConnectionManager:
         await websocket.accept()
         self.current_id += 1
         self.sockets_by_id[self.current_id] = websocket
+        self.game_to_sockets[LISTING_ID].append(self.current_id)
         return self.current_id
 
     def disconnect(self, socket_id: int) -> None:
@@ -51,9 +52,10 @@ class ConnectionManager:
             await self.sockets_by_id[socket_id].send_text(message)
 
     async def trigger_updates(self, game_id: int) -> None:
-        await self.broadcast_in_game(game_id, f"{UPDATE_GAME} {get_time()}")
+        for game_id in self.game_to_sockets:
+            await self.broadcast_in_game(game_id, f"{UPDATE_GAME} {get_time()}")
+        print(f"{UPDATE_GAME} {get_time()}")
                                                                      
-        
     async def remove_from_game(self, socket_id : int, game_id : int) -> None:
         self.game_to_sockets[game_id].remove(socket_id)
         self.game_to_sockets[LISTING_ID].append(socket_id) 
