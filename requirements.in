@@ -4,3 +4,5 @@ uvicorn
 pony
 fastapi[standard]
 requests
+pytest
+pytest-asyncio
