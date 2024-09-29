@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from connections import ConnectionManager
-from pony.orm import db_session, delete, commit, select
+from connections import ConnectionManager, LISTING_ID
+from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +51,7 @@ def list_games(page=1):
         return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
-def create_game(game_name, player_name, min_players=2, max_players=4):
+async def create_game(game_name, player_name, min_players=2, max_players=4):
     try:
         with db_session:
             new_game = Game(name=game_name)
@@ -61,6 +61,7 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
             new_game.min_players = min_players
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
+            await manager.trigger_updates(LISTING_ID)
             return game_data
     except:
         raise HTTPException(status_code=400,
@@ -173,7 +174,6 @@ def game_state(game_id : int):
             "player_f_cards": f_cards,
             "player_m_cards": m_cards
             })
-
 
 
 
