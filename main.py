@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from connections import ConnectionManager
-from pony.orm import db_session, delete, commit
+from pony.orm import db_session, delete, commit, select
 from orm import Game, Player
 from fastapi.testclient import TestClient
 from fastapi.middleware.cors import CORSMiddleware
