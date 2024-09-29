@@ -4,6 +4,7 @@ from connections import ConnectionManager
 from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -19,6 +20,15 @@ GAME_MAX = "max_players"
 GAMES_LIST = "games_list"
 # Error details
 GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
+
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -47,6 +57,8 @@ def create_game(game_name, player_name, min_players=2, max_players=4):
             new_game = Game(name=game_name)
             player_id = new_game.create_player(player_name)
             new_game.owner_id = player_id
+            new_game.max_players = max_players
+            new_game.min_players = min_players
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
             return game_data
@@ -96,8 +108,8 @@ def list_players(game_id : int):
 
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
-    await manager.connect(websocket)
-    await websocket.send_json({"msg": "Hello WebSocket"})
+    socket_id = await manager.connect(websocket)
+    await websocket.send_json({manager.current_id: "Hello WebSocket"})
     try:
         while True:
             # will remove later because the client
