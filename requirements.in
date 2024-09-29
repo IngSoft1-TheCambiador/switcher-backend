@@ -3,3 +3,6 @@ fastapi
 uvicorn
 pony
 fastapi[standard]
+httpx
+pytest
+pytest-asyncio
