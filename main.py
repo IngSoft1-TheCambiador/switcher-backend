@@ -54,7 +54,7 @@ def list_games(page=1):
         return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
-async def create_game(socket_id ,game_name, player_name, min_players=2, max_players=4):
+async def create_game(socket_id, game_name, player_name, min_players=2, max_players=4):
     try:
         with db_session:
             new_game = Game(name=game_name)
@@ -64,7 +64,7 @@ async def create_game(socket_id ,game_name, player_name, min_players=2, max_play
             new_game.min_players = int(min_players)
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
-            await manager.add_to_game(socket_id, game_id)
+            await manager.add_to_game(int(socket_id), game_id)
             return game_data
     except:
         raise HTTPException(status_code=400,
@@ -113,7 +113,7 @@ def list_players(game_id : int):
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
     socket_id = await manager.connect(websocket)
-    await websocket.send_json({"id": socket_id})
+    await websocket.send_json({"socketId": socket_id})
     try:
         while True:
             # will remove later because the client
