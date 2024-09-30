@@ -57,8 +57,8 @@ async def create_game(game_name, player_name, min_players=2, max_players=4):
             new_game = Game(name=game_name)
             player_id = new_game.create_player(player_name)
             new_game.owner_id = player_id
-            new_game.max_players = max_players
-            new_game.min_players = min_players
+            new_game.max_players = int(max_players)
+            new_game.min_players = int(min_players)
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
             await manager.trigger_updates(LISTING_ID)
