@@ -5,7 +5,6 @@ from pony.orm import db_session, delete, commit
 from orm import Game, Player
 from fastapi.testclient import TestClient
 from fastapi.middleware.cors import CORSMiddleware
-from connections import get_time
 
 app = FastAPI()
 
@@ -23,7 +22,6 @@ GAMES_LIST = "games_list"
 GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
 
 origins = ["*"]
-socket_id = None
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -45,7 +43,7 @@ def list_games(page=1):
         sorted_games = Game.select().order_by(Game.id)[begin:end]
         response_data = []
         for game in sorted_games:
-            if len(game.players) < game.max_players:
+            if len(game.players) < game.max_players and not game.is_init:
                 game_row = {GAME_ID : game.id, 
                     GAME_NAME : game.name,
                     GAME_MIN : game.min_players,
@@ -54,7 +52,7 @@ def list_games(page=1):
         return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
-async def create_game(socket_id, game_name, player_name, min_players=2, max_players=4):
+async def create_game(game_name, player_name, min_players=2, max_players=4):
     try:
         with db_session:
             new_game = Game(name=game_name)
@@ -62,16 +60,17 @@ async def create_game(socket_id, game_name, player_name, min_players=2, max_play
             new_game.owner_id = player_id
             new_game.max_players = int(max_players)
             new_game.min_players = int(min_players)
+            new_game.add_player(Player[player_id])
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
-            await manager.add_to_game(int(socket_id), game_id)
+            await manager.trigger_updates(LISTING_ID)
             return game_data
     except:
         raise HTTPException(status_code=400,
                             detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
-def leave_game(game_id : int, player_name : str):
+async def leave_game(game_id : int, player_name : str):
     with db_session:
         # somewhat ugly code raising the exception at two different places...
         game = Game.get(id=game_id)
@@ -96,6 +95,8 @@ def leave_game(game_id : int, player_name : str):
 
         game.players.remove(p)
         p.delete()
+        
+        await manager.trigger_updates(LISTING_ID)
 
         return(
                 {GAME_ID : game_id, 
@@ -113,7 +114,7 @@ def list_players(game_id : int):
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
     socket_id = await manager.connect(websocket)
-    await websocket.send_json({"socketId": socket_id})
+    await websocket.send_json({manager.current_id: "Hello WebSocket"})
     try:
         while True:
             # will remove later because the client
@@ -126,9 +127,10 @@ async def connect(websocket: WebSocket):
 
 
 @app.post("/join_game")
-async def join_game(socket_id, game_id, player_name):
+async def join_game(game_id, player_name):
     with db_session:
         # Retrieve the game by its ID
+        game_id = int(game_id)
         game = Game.get(id=game_id)
         
         # Check if the game exists
@@ -143,7 +145,9 @@ async def join_game(socket_id, game_id, player_name):
             return{"error" : "A player with this name already exists in the game"}
 
         pid = game.create_player(player_name)
-        await manager.add_to_game(socket_id, game_id)
+        
+        await manager.trigger_updates(LISTING_ID)
+
         return ({
                 "player_id": pid,
                 "game_id": game.id,
@@ -175,16 +179,18 @@ def game_state(game_id : int):
             "player_names": names,
             "player_colors": colors,
             "player_f_cards": f_cards,
-            "player_m_cards": m_cards
+            "player_m_cards": m_cards,
+            "owner_id": game.owner_id,
             })
 
 @app.put("/start_game")
-def start_game(game_id : int):
+async def start_game(game_id : int):
     try:
         with db_session:
             game_id = int(game_id)
             game = Game[game_id]
             game.initialize()
+            await manager.trigger_updates(LISTING_ID)
             return {"message" : f"Starting {game_id}"}
     except:
         raise HTTPException(status_code=400,

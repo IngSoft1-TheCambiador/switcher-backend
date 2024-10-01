@@ -1,76 +1,92 @@
-# conftest.py
-import pytest
-from pony.orm import db_session, Database
-from orm import db, Game, Player  # Import your database object and entity classes
+from random import choice
+from orm import Game, Player, db_session
 
-# Para referencia de qué hace esto, ver: 
-# https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
-# scope = function ---> ejecuta este setup antes de cada test 
-# autouse = True -----> usa este fixture en todos los tests, sin necesidad de que te lo especifique
-@pytest.fixture(scope='function', autouse=True)
-def setup_database():
-    
-    db.provider = db.schema = None
-    db.bind(provider='sqlite', filename=':memory:')
-    db.generate_mapping(create_tables=True)
-
+def test_game_creation():
     with db_session:
-        yield  
+        sample = Game(name="some game")
+        sample.create_player("Martin")
+        sample.create_player("Jorge")
+        sample.create_player("Unga")
+        assert len(sample.players) == 3
+        names = set()
+        for p in sample.players:
+            names.add(p.name)
+        assert "Martin" in names
+        assert "Jorge" in names
+        assert "Unga" in names
 
-    db.rollback()  
+def test_initialization_and_block_swapping():
+    with db_session:
+        sample = Game(name="some game")
+        sample.create_player("Martin")
+        sample.create_player("Jorge")
+        sample.create_player("Unga")
+        old_board = sample.board
+        old_five = sample.get_block_color(5, 5)
+        old_three = sample.get_block_color(3, 3)
+        sample.exchange_blocks(3, 3, 5, 5)
+        print(sample.board)
+        new_five = sample.get_block_color(5, 5)
+        new_three = sample.get_block_color(3, 3)
+        for index, char in enumerate(old_board):
+            same = old_board[index] == sample.board[index]
+            if index != 35 and index != 21:
+                assert old_board[index] == sample.board[index]
+        assert new_three == old_five and new_five == old_three
 
-@db_session
-def test_create_game():
-    game = Game(name="Test Game")
-    assert game.name == "Test Game"
-    assert game.is_init is False
-    assert len(game.players) == 0
+def test_player_deletion():
+    with db_session:
+        sample = Game(name="some game")
+        sample.create_player("Martin")
+        sample.create_player("Jorge")
+        sample.create_player("Unga")
+        sample.initialize()
+        for player in sample.players:
+            old_player = player
+            break
+        old_name = old_player.name
+        sample.remove_player(old_player)
+        for p in sample.players:
+            assert p.name != old_name
 
-@db_session
-def test_create_and_add_player():
-    game = Game(name="Test Game")
-    player_name = "Alice"
-    
-    player_id = game.create_player(player_name)
-    player = Player.get(id=player_id)
+def quick_showcase():
+    with db_session:
+        sample = Game(name="some game")
+        sample.create_player("Martin")
+        sample.create_player("Jorge")
+        sample.create_player("Unga")
+        sample.initialize()
+        print(sample.board)
+        old_board = sample.board
+        old_five = sample.get_block_color(5, 5)
+        old_three = sample.get_block_color(3, 3)
+        sample.exchange_blocks(3, 3, 5, 5)
+        print(sample.board)
+        new_five = sample.get_block_color(5, 5)
+        new_three = sample.get_block_color(3, 3)
+        for index, char in enumerate(old_board):
+            same = old_board[index] == sample.board[index]
+            if index != 35 and index != 21:
+                assert old_board[index] == sample.board[index]
+        assert new_three == old_five and new_five == old_three
+        for p in sample.players:
+           print("id: ",  p.id, "name: ", p.name, "next: ", p.next, "color: ", p.color)
+        print("Current: ", sample.current_player_id)
+        sample.end_turn()
+        print("Current: ", sample.current_player_id)
+        sample.end_turn()
+        print("Current: ", sample.current_player_id)
+        sample.end_turn()
+        print("Current: ", sample.current_player_id)
+        sample.end_turn()
+        for player in sample.players:
+            old_player = player
+            break
+        old_name = old_player.name
+        print("Removing ", old_name)
+        sample.remove_player(old_player)
+        print("Now in game:")
+        for p in sample.players:
+            print(p.name) 
 
-    assert player.name == player_name
-    assert player.game == game
-    assert len(game.players) == 1
-
-@db_session
-def test_initialize_game():
-    game = Game(name="Test Game")
-    game.create_player("Alice")
-    game.create_player("Bob")
-    
-    game.initialize()
-    
-    assert game.is_init is True
-    assert game.current_player_id is not None
-    assert len(game.players) == 2
-
-@db_session
-def test_remove_players():
-    game = Game(name="Test Game")
-    game.create_player("Alice")
-    game.create_player("Bob")
-    
-    assert len(game.players) == 2
-
-    game.remove_player("Alice")
-
-    assert len(game.players) == 1
-    assert [p.name for p in game.players] == [ "Bob" ]
-
-@db_session
-def test_exchange_blocks():
-    game = Game(name="Test Game")
-    game.create_player("Alice")
-    game.initialize()  # Initialize to shuffle the board
-
-    initial_board = game.board
-    game.exchange_blocks(1, 2, 5, 4)  # Exchange colors of two blocks
-    
-    assert game.board != initial_board  # Ensure board has changed
-    assert game.get_block_color(1, 2) != game.get_block_color(5, 4)  # Ensure colors exchanged
+quick_showcase()

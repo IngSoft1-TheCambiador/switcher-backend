@@ -10,7 +10,7 @@ UPDATE_GAME = "UPDATE GAME"
 
 def get_time():
     now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d %H:%M:%S")
+    return now.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 class ConnectionManager:
 
@@ -45,17 +45,16 @@ class ConnectionManager:
 
     async def broadcast_in_game(self, game_id: int, message: str) -> None:
         for socket_id in self.game_to_sockets[game_id]:
-            if socket_id in self.sockets_by_id.keys():
-                await self.sockets_by_id[socket_id].send_text(message)
+            await self.sockets_by_id[socket_id].send_text(message)
             
     async def broadcast_in_list(self, message : str) -> None:
         for socket_id in self.game_to_sockets[LISTING_ID]:
             await self.sockets_by_id[socket_id].send_text(message)
 
     async def trigger_updates(self, game_id: int) -> None:
-        for game_id in self.game_to_sockets:
-            await self.broadcast_in_game(game_id, f"{UPDATE_GAME} {get_time()}")
-        print(f"{UPDATE_GAME} {get_time()}")
+        for socket_id in self.game_to_sockets[0]:
+            await self.send_personal_message(socket_id, f"{UPDATE_GAME} {get_time()}")
+            print(f"{UPDATE_GAME} {get_time()}")
                                                                      
     async def remove_from_game(self, socket_id : int, game_id : int) -> None:
         self.game_to_sockets[game_id].remove(socket_id)
@@ -65,9 +64,7 @@ class ConnectionManager:
     async def add_to_game(self, socket_id: int, game_id: int) -> None:
         self.game_to_sockets[game_id].append(socket_id)
         # This is linear in the number of players currently not in a game, so we should make it a set instead of a list
-        if socket_id in self.game_to_sockets[LISTING_ID]:
-            self.game_to_sockets[LISTING_ID].remove(socket_id)
+        self.game_to_sockets[LISTING_ID].remove(socket_id)
         self.socket_to_game[socket_id] = game_id
         await self.broadcast_in_list(f"{PULL_GAMES} {get_time()}") # In case a game was filled
-        #await self.trigger_updates(game_id)
-        await self.broadcast_in_game(game_id, f"{PULL_GAMES} {get_time()}")
+        await self.trigger_updates(game_id)

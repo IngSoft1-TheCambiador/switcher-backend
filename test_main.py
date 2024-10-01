@@ -91,8 +91,22 @@ def test_game_state():
         commit()
         r = requests.get(f"http://127.0.0.1:8000/game_state?game_id={game.id}")
         print(r.json())
+        
+def test_start_game():
+    with db_session:
+        r = requests.put(f"http://127.0.0.1:8000/create_game?game_name=abc&player_name=TheCreator").json()
+        game_id = r["game_id"]
+
+        game = Game.get(id=r["game_id"])
+        game.create_player("Johnny")
+        game.create_player("Stewart")
+
+        r = requests.put(f"http://127.0.0.1:8000/start_game?game_id={game.id}")
+        print(r.json())
+    
 
 #test_game_listing()
 #test_game_creation_request()
 #test_leave_game()
 #test_game_state()
+test_start_game()
