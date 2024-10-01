@@ -5,7 +5,7 @@ install all requirements, run `pip install -r requirements.txt`. *Use a virtual
 environment, always*.
 
 Assuming the requirements are installed, the server can be lifted calling
-`uvicorn src.main:app`. The expected output is:
+`uvicorn main:app`. The expected output is:
 
 ```bash
  uvicorn src.main:app
