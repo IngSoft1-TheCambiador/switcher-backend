@@ -4,5 +4,6 @@ uvicorn
 pony
 fastapi[standard]
 httpx
+requests
 pytest
 pytest-asyncio
