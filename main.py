@@ -191,12 +191,13 @@ def game_state(socket_id : int):
             })
 
 @app.put("/start_game")
-def start_game(game_id : int):
+async def start_game(game_id : int):
     try:
         with db_session:
             game_id = int(game_id)
             game = Game[game_id]
             game.initialize()
+            await manager.broadcast_in_game(game_id, "INITIALIZED")
             return {"message" : f"Starting {game_id}"}
     except:
         raise HTTPException(status_code=400,
