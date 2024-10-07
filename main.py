@@ -23,7 +23,7 @@ GAMES_LIST = "games_list"
 GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
 
 origins = ["*"]
-socket_id = None
+socket_id  : int
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -37,9 +37,9 @@ async def root():
     return {"message": "Hello World"}
 
 @app.get("/list_games")
-def list_games(page=1):
+def list_games(page : int =1):
     with db_session:
-        page = int(page)
+        page = page
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
         sorted_games = Game.select().order_by(Game.id)[begin:end]
@@ -54,7 +54,7 @@ def list_games(page=1):
         return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
-async def create_game(socket_id, game_name, player_name, min_players=2, max_players=4):
+async def create_game(socket_id : int, game_name : str, player_name : str, min_players : int =2, max_players : int =4):
     try:
         with db_session:
             new_game = Game(name=game_name)
@@ -64,11 +64,14 @@ async def create_game(socket_id, game_name, player_name, min_players=2, max_play
             new_game.min_players = int(min_players)
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
-            await manager.add_to_game(int(socket_id), game_id)
+            await manager.add_to_game(socket_id, game_id)
             return game_data
-    except:
-        raise HTTPException(status_code=400,
-                            detail=GENERIC_SERVER_ERROR)
+    except Exception as e:
+        print(type(e))
+        print(e.args)
+        print(e)
+        #raise HTTPException(status_code=400,
+                            #detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
 def leave_game(game_id : int, player_name : str):
@@ -122,11 +125,11 @@ async def connect(websocket: WebSocket):
             # way around
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(socket_id)
 
 
 @app.post("/join_game")
-async def join_game(socket_id, game_id, player_name):
+async def join_game(socket_id : int, game_id : int, player_name : str):
     with db_session:
         # Retrieve the game by its ID
         game = Game.get(id=game_id)
@@ -139,19 +142,24 @@ async def join_game(socket_id, game_id, player_name):
         if len(game.players) >= game.max_players:
             return {"error": "Game is already full"}
 
-        if player_name in [ p.name for p in game.players ]:
-            return{"error" : "A player with this name already exists in the game"}
+        #if player_name in [ p.name for p in game.players ]:
+            #return{"error" : "A player with this name already exists in the game"}
 
         pid = game.create_player(player_name)
         await manager.add_to_game(socket_id, game_id)
         return ({
                 "player_id": pid,
-                "game_id": game.id,
-                "message": f"Player {pid} joined the game {game_id}"
+                "owner_id": game.owner_id,
+                "player_names": [p.name for p in game.players]
                 })
 
 @app.get("/game_state")
-def game_state(game_id : int):
+def game_state(socket_id : int):
+    game_id = 0
+    if socket_id in manager.socket_to_game.keys():
+        game_id = manager.socket_to_game[socket_id]
+    else:
+        return({"error:" : "socket not in a game"})
     with db_session:
         game = Game.get(id=game_id)
         
@@ -172,10 +180,14 @@ def game_state(game_id : int):
             "initialized":  game.is_init,
             "player_ids": player_ids,
             "current_player": game.current_player_id,
-            "player_names": names,
+            "player_names": [p.name for p in game.players],
             "player_colors": colors,
             "player_f_cards": f_cards,
-            "player_m_cards": m_cards
+            "player_m_cards": m_cards,
+            "owner_id" : game.owner_id,
+            "max_players" : game.max_players,
+            "min_players" : game.min_players,
+            "name" : game.name
             })
 
 @app.put("/start_game")
