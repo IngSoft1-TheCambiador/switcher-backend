@@ -41,14 +41,27 @@ def test_create_and_add_player():
 @db_session
 def test_initialize_game():
     game = Game(name="Test Game")
-    game.create_player("Alice")
-    game.create_player("Bob")
+    p1_id = game.create_player("Alice")
+    p1 = Player.get(id=p1_id)
+    p2_id = game.create_player("Bob")
+    p2 = Player.get(id=p2_id)
     
     game.initialize()
 
-    assert len(game.players.current_shapes) == 6    # 6 porque cada uno deberia tener 3 (hay 2 players)
-    assert len(game.players.shapes) == 50           # 50 porque cada uno deberia tener 25 en total
-    assert len(game.players.moves) == 6             # 6 porque cada uno deberia tener 3
+    assert len([h for h in p1.current_shapes]) == 3
+    assert len([s for s in p1.shapes]) == 25
+    assert len([m for m in p1.moves]) == 3
+
+    valid_shapes = {"s1", "s2", "s3", "s4", "s5", "s6", "s7", "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16", "h17", "h18"}
+    valid_moves = {"mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"}
+    for shape in p1.shapes:
+        assert shape.shape_type in valid_shapes
+    for move in p1.moves:
+        assert move.move_type in valid_moves
+    for shape in p2.shapes:
+        assert shape.shape_type in valid_shapes
+    for move in p2.moves:
+        assert move.move_type in valid_moves
 
     assert game.is_init is True
     assert game.current_player_id is not None
