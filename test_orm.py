@@ -45,7 +45,11 @@ def test_initialize_game():
     game.create_player("Bob")
     
     game.initialize()
-    
+
+    assert len(game.players.current_shapes) == 6    # 6 porque cada uno deberia tener 3 (hay 2 players)
+    assert len(game.players.shapes) == 50           # 50 porque cada uno deberia tener 25 en total
+    assert len(game.players.moves) == 6             # 6 porque cada uno deberia tener 3
+
     assert game.is_init is True
     assert game.current_player_id is not None
     assert len(game.players) == 2
@@ -67,6 +71,7 @@ def test_remove_players():
 def test_exchange_blocks():
     game = Game(name="Test Game")
     game.create_player("Alice")
+    game.create_player("Bob")
     game.initialize()  # Initialize to shuffle the board
 
     initial_board = game.board
