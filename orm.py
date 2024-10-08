@@ -5,6 +5,9 @@ from pony.orm import db_session, select, commit
 db = Database()
 
 DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
+DEFAULT_HARD_SHAPES = ["h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16", "h17", "h18"]*2
+DEFAULT_SIMPLE_SHAPES = ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]*2
+DEFAULT_MOVES = ["mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"]*7
 
 class Shape(db.Entity):
     id = PrimaryKey(int, auto=True)
@@ -96,6 +99,49 @@ class Game(db.Entity):
         shuffle(colors)
         for position, player in enumerate(self.players):
             player.next = next_id[player.id]
+        # Set player cards
+        p_quantity = len(self.players)
+        hard_shapes = DEFAULT_HARD_SHAPES
+        shuffle(hard_shapes)
+        simple_shapes = DEFAULT_SIMPLE_SHAPES
+        shuffle(simple_shapes)
+        move_types = DEFAULT_MOVES
+        shuffle(move_types)
+        for player in self.players:
+            shapes = []
+            moves = []
+            shapes_in_hand = []
+            match p_quantity:
+                case 2:
+                    for x in range(7):
+                        shapes.append(simple_shapes.pop())
+                    for x in range(18):
+                        shapes.append(hard_shapes.pop())
+                    shuffle(shapes)
+                case 3:
+                    for x in range(4):
+                        shapes.append(simple_shapes.pop())
+                    for x in range(12):
+                        shapes.append(hard_shapes.pop())
+                    shuffle(shapes)
+                case 4:
+                    for x in range(3):
+                        shapes.append(simple_shapes.pop())
+                    for x in range(9):
+                        shapes.append(hard_shapes.pop())
+                    shuffle(shapes)
+            for x in range(3):
+                moves.append(move_types.pop())
+                shapes_in_hand.append(shapes.pop())
+            for m in moves:
+                mov = Move(move_type=m, owner=player)
+                player.moves.add(mov)
+            for s in shapes:
+                shape = Shape(shape_type=s, owner=player)
+                player.shapes.add(shape)
+            for h in shapes_in_hand:
+                hand = Shape(shape_type=h, owner_hand=player)
+                player.shapes.add(hand)
 
         # Set current_player
         self.current_player_id = choice(all_ids)
