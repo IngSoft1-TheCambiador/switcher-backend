@@ -101,11 +101,11 @@ class Game(db.Entity):
             player.next = next_id[player.id]
         # Set player cards
         p_quantity = len(self.players)
-        hard_shapes = DEFAULT_HARD_SHAPES
+        hard_shapes = list(DEFAULT_HARD_SHAPES)
         shuffle(hard_shapes)
-        simple_shapes = DEFAULT_SIMPLE_SHAPES
+        simple_shapes = list(DEFAULT_SIMPLE_SHAPES)
         shuffle(simple_shapes)
-        move_types = DEFAULT_MOVES
+        move_types = list(DEFAULT_MOVES)
         shuffle(move_types)
         for player in self.players:
             shapes = []
