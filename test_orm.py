@@ -96,7 +96,7 @@ def test_exchange_blocks():
 @db_session
 def test_game_cleanup():
     game_name = "Test Game"
-    game = Game(name=test_game)
+    game = Game(name=game_name)
     game.create_player("Alice")
     game.create_player("Bob")
     game.initialize()
