@@ -38,8 +38,22 @@ async def root():
 
 @app.get("/list_games")
 def list_games(page : int =1):
+    """
+    
+    This GET endpoint wraps available games into 8-element pages and 
+    returns a sorted list of games in a given page. Games are sorted by 
+    id. The information sent per each game is: (0) its ID, (1) its name, and
+    (2) its min/max players configuration, 
+
+    Arguments
+    ----------
+    page : int 
+        The page to return.
+
+
+    """
     with db_session:
-        page = page
+        page = page # ¿?
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
         sorted_games = Game.select().order_by(Game.id)[begin:end]
@@ -55,6 +69,24 @@ def list_games(page : int =1):
 
 @app.put("/create_game/")
 async def create_game(socket_id : int, game_name : str, player_name : str, min_players : int =2, max_players : int =4):
+    """
+    This PUT endpoint creates a new `Game` object in the database. The game is
+    immediately associated to (a) a player (its host or creator) and (b) a
+    websocket through which communication with the host is carried out.
+
+    Arguments 
+    ---------
+    socket_id : int 
+        The ID of the websocket which will allow for communication with the host of the game. 
+    game_name : str 
+        The name of the game.
+    player_name : str 
+        The name of the host. 
+    (optional) min_players : int = 2 
+        Minimum number of players which must join the game before it may be started.
+    (optional) max_players : int = 4
+        Maximum number of players which can join the game.
+    """
     try:
         with db_session:
             new_game = Game(name=game_name)
@@ -75,6 +107,16 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
 
 @app.post("/leave_game")
 def leave_game(game_id : int, player_name : str):
+    """
+    Removes a player from a game.
+
+    Arguments 
+    ---------
+    game_id : int 
+        The ID of the game from which to remove the player.
+    player_name : str 
+        The name of the player to remove.
+    """
     with db_session:
         # somewhat ugly code raising the exception at two different places...
         game = Game.get(id=game_id)
@@ -107,6 +149,14 @@ def leave_game(game_id : int, player_name : str):
 
 @app.get("/list_players")
 def list_players(game_id : int):
+    """
+    Lists all players in a given game. 
+
+    Arguments 
+    --------- 
+    game_id : int 
+        The ID of the game whose players will be listed.
+    """
     with db_session:
         g = Game.get(id=game_id)
         g.dump_players()
@@ -115,6 +165,21 @@ def list_players(game_id : int):
 
 @app.websocket("/ws/connect")
 async def connect(websocket: WebSocket):
+    """
+    
+    Establishes a websocket connection in the server.
+
+    Arguments 
+    --------- 
+    websocket: WebSocket 
+        The websocket through which connection will be established.
+
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    for reference, see: 
+        https://fastapi.tiangolo.com/advanced/websockets/#create-a-websocket
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    """
     socket_id = await manager.connect(websocket)
     await websocket.send_json({"socketId": socket_id})
     try:
@@ -130,6 +195,22 @@ async def connect(websocket: WebSocket):
 
 @app.post("/join_game")
 async def join_game(socket_id : int, game_id : int, player_name : str):
+    """
+    
+    Creates a new player in a game. This function handles creating the `Player`
+    object in the corresponding `Game` object of the database as well as 
+    setting the websocket connection of the player in the game. 
+
+    Arguments 
+    --------- 
+    socket_id : int 
+        ID of the websocket through which communication with the new player will occur. 
+    game_id : int 
+        The ID of the game where the new player will be created.
+    game_player : str 
+        The name of the created player.
+        
+    """
     with db_session:
         # Retrieve the game by its ID
         game = Game.get(id=game_id)
@@ -155,6 +236,28 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
 
 @app.get("/game_state")
 def game_state(socket_id : int):
+    """
+    
+    Given the ID of a websocket, it retrieves relevant data from the game where 
+    the websocket lives. Retrieved data is: 
+
+        ~ The name of the game.
+        ~ The ID of the owner (or host) of the game.
+        ~ Is the game initialized?
+        ~ The IDs of all players in the game. 
+        ~ The names of all players in the game.
+        ~ The player whose turn is. 
+        ~ The color of all players in the game. 
+        ~ The figure cards each player has. 
+        ~ The movement cards each player has. 
+        ~ Max and min players allowed in the game. 
+
+    Arguments 
+    --------- 
+    socket_id : int 
+        ID of a websocket that lives in the game of interest.
+        
+    """
     game_id = 0
     if socket_id in manager.socket_to_game.keys():
         game_id = manager.socket_to_game[socket_id]
@@ -192,6 +295,16 @@ def game_state(socket_id : int):
 
 @app.put("/start_game")
 async def start_game(game_id : int):
+    """
+    Calls the initialization function of a specified game. The call triggers 
+    dealing of cards, assignment of turns, and other steps required for the game 
+    to begin. Players are informed of the initialization through a websocket broadcast.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game to start.
+    """
     try:
         with db_session:
             game_id = int(game_id)
