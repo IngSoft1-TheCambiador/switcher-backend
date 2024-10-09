@@ -92,3 +92,18 @@ def test_exchange_blocks():
     
     assert game.board != initial_board  # Ensure board has changed
     assert game.get_block_color(1, 2) != game.get_block_color(5, 4)  # Ensure colors exchanged
+
+@db_session
+def test_game_cleanup():
+    game_name = "Test Game"
+    game = Game(name=test_game)
+    game.create_player("Alice")
+    game.create_player("Bob")
+    game.initialize()
+    all_names = set([game.name for game in Game.select()])
+    assert game_name in all_names
+    game.cleanup()
+    all_names = set([game.name for game in Game.select()])
+    assert game_name not in all_names
+    
+    
