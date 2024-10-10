@@ -338,9 +338,9 @@ class Game(db.Entity):
 
     @db_session        
     def cleanup(self):
-        '''
-        Delete a game, its players, and their shapes and movements.
-        '''
+        """
+        Deletes a game, its players, their shapes and their movements.
+        """
         for player in self.players:
             # Call 'custom' player removal method, which
             # handles all moves and shapes depending on
