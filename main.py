@@ -131,9 +131,16 @@ def leave_game(game_id : int, player_name : str):
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
 
-        if len(game.players) == 2:
+        if len(game.players) == 1:
             # Handle: ganador por abandono
-            pass
+            for p in game.players:
+                winner_name = p.name
+            manager.end_game(game_id, winner_name)
+            game.cleanup()
+            return (
+                {GAME_ID : game_id, 
+                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
+                )
 
         if len(game.players) == 1:
             # Handle: el creador abandono antes de que se una nadie
@@ -184,11 +191,12 @@ async def connect(websocket: WebSocket):
     await websocket.send_json({"socketId": socket_id})
     try:
         while True:
-            # will remove later because the client
-            # doesnt use their websocket to send
-            # data to the server, but the other 
-            # way around
-            data = await websocket.receive_text()
+            try:
+                data = await websocket.receive_text()
+            except WebSocketDisconnect:
+                print(f'The connection with id {socket_id} closed! Now cleaning up associated data')
+                manager.disconnect(socket_id)
+                return
     except WebSocketDisconnect:
         manager.disconnect(socket_id)
 
