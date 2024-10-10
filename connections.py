@@ -161,6 +161,11 @@ class ConnectionManager:
         for game_id in self.game_to_sockets:
             await self.broadcast_in_game(game_id, f"{UPDATE_GAME} {get_time()}")
         print(f"{UPDATE_GAME} {get_time()}")
+        
+    async def end_game(self, game_id : int, winner : str) -> None:
+        game_ended = f"{GAME_ENDED} {winner} {get_time()}"
+        for socket_id in self.game_to_sockets[game_id]:
+            await self.send_personal_message(socket_id, game_ended)
                                                                      
     async def remove_from_game(self, socket_id : int, game_id : int) -> None:
         """ 

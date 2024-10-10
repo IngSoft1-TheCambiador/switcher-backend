@@ -43,6 +43,20 @@ class Player(db.Entity):
     def add_current_shape(self, shape):
         self.current_shapes.add(shape)
 
+    @db_session
+    def remove(self):
+        '''
+        Delete a player after deleting its shapes and movements.
+        '''
+        for shape in self.shapes:
+            shape.delete()
+        for shape in self.current_shapes:
+            shape.delete()
+        for move in self.moves:
+            move.delete()
+        self.delete()
+        commit()
+
 class Game(db.Entity):
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
@@ -173,6 +187,20 @@ class Game(db.Entity):
         print(f"Dumping players of game {self.id}")
         for p in self.players:
             print(p.name)
+
+    @db_session        
+    def cleanup(self):
+        '''
+        Delete a game, its players, and their shapes and movements.
+        '''
+        for player in self.players:
+            # Call 'custom' player removal method, which
+            # handles all moves and shapes depending on
+            # a given player
+            player.remove()
+        # Call Pony's delete for the Game instance
+        self.delete()
+        commit()
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
