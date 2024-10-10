@@ -89,9 +89,13 @@ def leave_game(game_id : int, player_name : str):
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
 
-        if len(game.players) == 2:
+        if len(game.players) == 1:
             # Handle: ganador por abandono
-            pass
+            game.cleanup()
+            return (
+                {GAME_ID : game_id, 
+                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
+                )
 
         if len(game.players) == 1:
             # Handle: el creador abandono antes de que se una nadie
