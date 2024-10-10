@@ -10,6 +10,22 @@ DEFAULT_SIMPLE_SHAPES = ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]*2
 DEFAULT_MOVES = ["mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"]*7
 
 class Shape(db.Entity):
+    """
+    This class represents a shape card (carta de figura).
+
+    Attributes
+    ---------- 
+    id : int 
+        The ID of the instance. 
+    shape_type : str 
+        A description of the kind of figure the instance is. 
+    is_blocked : bool 
+        Is the figure blocked? 
+    (optional) owner : Player
+        The Player who owns the card. 
+    (optional) owner_hand : Player 
+        ?
+    """
     id = PrimaryKey(int, auto=True)
     shape_type = Required(str)
     is_blocked = Required(bool, default=False)
@@ -17,33 +33,118 @@ class Shape(db.Entity):
     owner_hand = Optional("Player", reverse="current_shapes") # Pony does not support owner^ = shapes_deck | current_shapes
 
 class Move(db.Entity):
+    """
+    This class represents movement cards. 
+
+    Attributes
+    -----------
+    id : int 
+        The ID of the instance.
+    move_type : str 
+        A description of the kind of movement the card effects. 
+    (optional) owner : Player
+        The Player who owns the card. 
+
+    """
     id = PrimaryKey(int, auto=True)
     move_type = Required(str)
     owner = Optional("Player", reverse="moves")
 
 class Player(db.Entity):
+    """
+    This class represents players in the game. Every player is associated to a game:
+    users who aren't in a game do not constitute instances of this class. 
+
+    Attributes 
+    ----------
+    id : int 
+        The ID of the instance. 
+    (optional) color : str 
+        The color which was assigned to this player in the game. 
+    name : str 
+        The name of this player.
+    game : Game
+        The game this player is part of.
+    moves : Set("Move")
+        The set of movement cards this player has.
+    shapes : Set(Shape)
+        The set of shape cards this player has.
+    current_shapes : Set(Shape) 
+        The shapes the players can see, discard and unblock.
+    next : int 
+        The ID of the player who follows this player in the turn order.
+    """
     id = PrimaryKey(int, auto=True)
     color = Optional(str)
     name = Required(str)
     game = Required("Game", reverse="players")
     moves = Set("Move", reverse="owner")
     shapes = Set(Shape, reverse="owner")
-    current_shapes = Set(Shape, reverse="owner_hand") # The shapes the players can see, discard and unblock
-    next = Required(int, default=0) # Id of the next player, based on turn order
+    current_shapes = Set(Shape, reverse="owner_hand") 
+    next = Required(int, default=0) 
 
     @db_session
     def add_move(self, move):
+        """
+        Adds a movement card to the set of movement cards a player has.
+
+        Parameters 
+        ---------
+        move : Move 
+            A Move object (representing a movement card).
+        """
         self.moves.add(move)
         
     @db_session
     def add_shape(self, shape):
+        """
+        Adds a shape card to the set of shape cards a player has.
+
+        Parameters 
+        ---------
+        move : Move 
+            A Shape object (representing a movement card).
+        """
         self.shapes.add(shape)
     
     @db_session    
     def add_current_shape(self, shape):
+        """
+        Adds a shape to the set of shapes the player can see, 
+        discard or unblock.
+
+        Parameters 
+        ---------
+        move : Move 
+            A Shape object.
+        """
         self.current_shapes.add(shape)
 
 class Game(db.Entity):
+    """
+    This class represents Switcher games.
+
+    Attributes 
+    ----------
+    id : int
+        The ID of this game.
+    name : str 
+        : The name of this game.
+    min_players : int 
+        Minimum number of players required for the game to be played.
+    max_players : int 
+        Maximum number of players allowed in the game. 
+    is_init : bool 
+        Has the game begun?
+    owner_id : int 
+        The ID of the host/owner of the game.
+    current_player_id : int 
+        The ID of the player whose turn is.
+    players : Set(Player) 
+        The set of players in this game.
+    board : str 
+        A string representation of the game board.
+    """
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
     min_players = Required(int, default=2, py_check=lambda x: x >= 2 and x <= 4)
@@ -56,6 +157,15 @@ class Game(db.Entity):
     
     @db_session
     def create_player(self, player_name):
+        """
+        Creates a Player in a game, storing it in the 
+        database.
+
+        Parameters 
+        ---------- 
+        player_name : str 
+            The name of the player to be created.
+        """
         player = Player(name=player_name, game=self)
         if len(self.players) == 0:
             self.owner_id = player.id
@@ -65,19 +175,26 @@ class Game(db.Entity):
 
     @db_session          
     def remove_player(self, player_name):
+        """
+        Removes a player from a game.
+        """
         player = Player.get(name=player_name, game=self)
         self.players.remove(player)
 
     @db_session            
-    def start(self):
-        self.is_init = True
-
-    @db_session            
     def end(self):
+        """This function ends the game. (...)"""
         pass
 
     @db_session            
     def initialize(self):
+        """ 
+        Initializes the game. The initialization process consists of: 
+
+            (a) Shuffling the board, which prior to initialization is in a default state. 
+            (b) Setting up the order in which players will play. 
+            (c) Shuffling and dealing cards to the players.
+        """
         self.is_init = True
         # Set board state
         board = list(self.board)
@@ -149,10 +266,34 @@ class Game(db.Entity):
     
     @db_session            
     def get_block_color(self, i, j):
+        """
+        Returns the color of the square at position (i, j) in the board.
+
+        Arguments 
+        ---------
+        i : int 
+            Self explanatory.
+        j : int 
+            Self explanatory.
+        """
         return self.board[i * 6 + j]
 
     @db_session            
     def exchange_blocks(self, i, j, k, l):
+        """
+        Swaps the squares at positions (i, j) and (k, l) in the board.
+
+        Arguments 
+        ---------
+        i : int 
+            Self explanatory.
+        j : int 
+            Self explanatory.
+        k : int 
+            Self explanatory.
+        l : int 
+            Self explanatory.
+        """
         board = list(self.board)
         first_color = board[i * 6 + j]
         second_color = board[k * 6 + l]
@@ -163,6 +304,10 @@ class Game(db.Entity):
 
     @db_session        
     def end_turn(self):
+        """
+        Ends the turn of the current player and begins the turn of his successor in 
+        the turn order.
+        """
         current_player = Player.get(id=self.current_player_id)
         self.current_player_id = current_player.next
         commit()
@@ -170,6 +315,9 @@ class Game(db.Entity):
     # just a helper for debugging
     @db_session 
     def dump_players(self):
+        """
+        Helper (debugging) function. Prints all players in the current game.
+        """
         print(f"Dumping players of game {self.id}")
         for p in self.players:
             print(p.name)
