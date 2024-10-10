@@ -91,6 +91,9 @@ def leave_game(game_id : int, player_name : str):
 
         if len(game.players) == 1:
             # Handle: ganador por abandono
+            for p in game.players:
+                winner_name = p.name
+            manager.end_game(game_id, winner_name)
             game.cleanup()
             return (
                 {GAME_ID : game_id, 
@@ -123,11 +126,12 @@ async def connect(websocket: WebSocket):
     await websocket.send_json({"socketId": socket_id})
     try:
         while True:
-            # will remove later because the client
-            # doesnt use their websocket to send
-            # data to the server, but the other 
-            # way around
-            data = await websocket.receive_text()
+            try:
+                data = await websocket.receive_text()
+            except WebSocketDisconnect:
+                print(f'The connection with id {socket_id} closed! Now cleaning up associated data')
+                manager.disconnect(socket_id)
+                return
     except WebSocketDisconnect:
         manager.disconnect(socket_id)
 
