@@ -298,7 +298,8 @@ def game_state(socket_id : int):
             "owner_id" : game.owner_id,
             "max_players" : game.max_players,
             "min_players" : game.min_players,
-            "name" : game.name
+            "name" : game.name,
+            "board" : game.board
             })
 
 @app.put("/start_game")
