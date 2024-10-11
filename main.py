@@ -300,6 +300,49 @@ def game_state(socket_id : int):
             "min_players" : game.min_players,
             "name" : game.name
             })
+            
+@app.put("/skip_turn")
+async def skip_turn(game_id : int, player_id : int):
+    """
+    Let the player with `player_id` as ID skip a turn in the game 
+    with `game_id` as ID.
+    
+    If `player_id` is the current player of the `Game` object with 
+    `game_id` as ID, and that game is already running (i.e. 
+    `game.is_init == True`), assign `Game[game_id].current_player_id` 
+    to `Player[player_id].next`.
+    
+    Otherwise, nothing happens.
+    
+    Arguments
+    ---------
+    game_id : int 
+        ID of the game
+    player_id : int
+        ID of the player
+    """
+    try:
+        with db_session:
+            # This fails if there is no game with game_id as id
+            game = Game[game_id]
+            if player_id == game.current_player_id and game.is_init:
+                current = Player[player_id]
+                next_id = current.next
+                game.current_player_id = next_id
+                await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
+                return {"message" : f"Player {player_id} skipped in game {game_id}"}
+            else:
+                failure_message = f'''
+                Received a skip request in game {game_id} with player id {player_id},
+                but either there is no such game, no such player, no such player in
+                such game, or the player is not currently holding the 'current player'
+                position.
+                '''
+                return {"message" : failure_message}
+    except:
+        raise HTTPException(status_code=400,
+                            detail=f"Failed to skip turn in game {game_id} with player id {player_id}")
+    
 
 @app.put("/start_game")
 async def start_game(game_id : int):
