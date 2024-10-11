@@ -70,15 +70,20 @@ def test_initialize_game():
 @db_session
 def test_remove_players():
     game = Game(name="Test Game")
-    game.create_player("Alice")
-    game.create_player("Bob")
-    
+    alice_id = game.create_player("Alice")
+    bob_id = game.create_player("Bob")
+    carl_id = game.create_player("Carl")
+    alice = Player[alice_id]
+    bob = Player[bob_id]
+    carl = Player[carl_id]
+    alice.next = bob_id
+    bob.next = carl_id
+    carl.next = alice_id
+    assert len(game.players) == 3
+    carl.remove()
     assert len(game.players) == 2
-
-    game.remove_player("Alice")
-
-    assert len(game.players) == 1
-    assert [p.name for p in game.players] == [ "Bob" ]
+    assert set([p.name for p in game.players]) == set([ "Alice", "Bob" ])
+    assert bob.next == alice_id
 
 @db_session
 def test_exchange_blocks():

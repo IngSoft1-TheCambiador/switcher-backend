@@ -131,6 +131,10 @@ class Player(db.Entity):
             shape.delete()
         for move in self.moves:
             move.delete()
+        previous = list(self.game.players.filter(lambda p: p.next == self.id))
+        if previous:
+            previous = previous[0]
+            previous.next = self.next
         self.delete()
         commit()
 
