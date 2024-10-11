@@ -59,7 +59,7 @@ def list_games(page : int =1):
         sorted_games = Game.select().order_by(Game.id)[begin:end]
         response_data = []
         for game in sorted_games:
-            if len(game.players) < game.max_players:
+            if len(game.players) < game.max_players and not game.is_init:
                 game_row = {GAME_ID : game.id, 
                     GAME_NAME : game.name,
                     GAME_MIN : game.min_players,
@@ -302,6 +302,52 @@ def game_state(socket_id : int):
             "board" : game.board
             })
 
+
+@app.post("/partial_move")
+async def partial_move(game_id : int, a : int, b : int, x : int, y : int): 
+    """
+    Effects a partial move - i.e. changes the board in accordance to a played 
+    movement card.
+    """
+
+    with db_session:
+        game = Game[game_id]
+        if game is None:
+            print("Game not found. Rasing HTTP Exception 400")
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+        game.exchange_blocks(a, b, x, y)
+        await manager.broadcast_in_game(game_id, "PARTIAL MOVE EFFECTED")
+        print("CHECK ME OUT : ", game.board)
+        print("CHECK ME OUT : ", game.old_board)
+        return {
+            "actual_board" : game.board, 
+            "old_board" : game.old_board
+        }
+
+@app.post("/commit_board")
+async def commit_board(game_id : int): 
+    """
+    Takes a snapshot of the current board and stores it as the `old_board` in the game,
+    effectively creating a checkpoint to return to if partial moves must be undone.
+
+    Parameters
+    ----------
+    game_id : int 
+        ID of the game where the new checkpoint board is to be committed.
+    """
+
+    with db_session:
+        game = Game[game_id]
+        if game is None:
+            print("Game not found. Rasing HTTP Exception 400")
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+        game.commit_board()
+        await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE PERMANENTLY APPLIED")
+        return {
+            "true_board" : game.board
+        }
+
+
 @app.put("/start_game")
 async def start_game(game_id : int):
     """
@@ -316,7 +362,7 @@ async def start_game(game_id : int):
     """
     try:
         with db_session:
-            game_id = int(game_id)
+            game_id = int(game_id) # ¿?
             game = Game[game_id]
             game.initialize()
             await manager.broadcast_in_game(game_id, "INITIALIZED")

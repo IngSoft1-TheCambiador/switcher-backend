@@ -4,7 +4,7 @@ from pony.orm import db_session, select, commit
 
 db = Database()
 
-DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
+DEFAULT_BOARD = "r" * 6 + "b" * 6 + "g" * 6 + "y" * 6 + "r" * 6 + "b" * 6
 
 class Shape(db.Entity):
     """
@@ -159,6 +159,10 @@ class Game(db.Entity):
         The set of players in this game.
     board : str 
         A string representation of the game board.
+    old_board : str 
+        A string representation of the game board as it was before the 
+        last (yet unapplied) partial moves.
+        on it.
     move_deck : list of strings 
         A list of strings representing movement cards not held by any player.
     """
@@ -171,6 +175,7 @@ class Game(db.Entity):
     current_player_id = Optional(int)
     players = Set(Player, reverse="game")
     board = Required(str, default=DEFAULT_BOARD)
+    board = Optional(str, default=DEFAULT_BOARD)
     move_deck = [f"mov{i}" for i in range(1, 8)] * 7
 
 
@@ -205,7 +210,8 @@ class Game(db.Entity):
     def end(self):
         """This function ends the game. (...)"""
         pass
-
+    
+    @db_session
     def set_turns_and_colors(self):
         colors = ["r", "g", "b", "y"]
         players = [p for p in self.players]
@@ -325,6 +331,7 @@ class Game(db.Entity):
         board_list = list(self.board)  # Convert the string to a list
         shuffle(board_list)            # Shuffle the list in place
         self.board = "".join(board_list)  # Join the shuffled list back into a string
+        self.old_board = self.board
         # Set turns
         self.set_turns_and_colors()
         # Deal cards
@@ -351,10 +358,22 @@ class Game(db.Entity):
         """
         return self.board[i * 6 + j]
 
+    @db_session 
+    def commit_board(self):
+        """
+        Takes a snapshot of the current board and stores it as the `old_board`
+        in the game, effectively creating a checkpoint to return to if partial
+        moves must be undone.
+        """
+        self.old_board = self.board 
+        commit()
+
     @db_session            
     def exchange_blocks(self, i, j, k, l):
         """
-        Swaps the squares at positions (i, j) and (k, l) in the board.
+        Swaps the squares at positions (i, j) and (k, l) in the board board.
+        This changes are not reflected on the actual board until 
+        a call to apply_board_changes() is made.
 
         Arguments 
         ---------
@@ -367,11 +386,13 @@ class Game(db.Entity):
         l : int 
             Self explanatory.
         """
+        
+        if any(arg > 5 for arg in [i, j, k, l]):
+            raise(ValueError("""Invalid swap coordinates: in a 6x6 board, 
+                             all coordinate values must range in {0, 1, …, 5}"""))
+
         board = list(self.board)
-        first_color = board[i * 6 + j]
-        second_color = board[k * 6 + l]
-        board[i * 6 + j] = second_color
-        board[k * 6 + l] = first_color
+        board[k * 6 + l], board[i * 6 + j] = board[i * 6 + j], board[k * 6 + l]
         self.board = "".join(board)
         commit()
 
