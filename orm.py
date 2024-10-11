@@ -159,6 +159,8 @@ class Game(db.Entity):
         The set of players in this game.
     board : str 
         A string representation of the game board.
+    move_deck : list of strings 
+        A list of strings representing movement cards not held by any player.
     """
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
