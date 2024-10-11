@@ -1,13 +1,10 @@
-from random import shuffle, choice
+from random import shuffle, choice, sample
 from pony.orm import Database, PrimaryKey, Required, Set, Optional
 from pony.orm import db_session, select, commit
 
 db = Database()
 
 DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
-DEFAULT_HARD_SHAPES = ["h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16", "h17", "h18"]*2
-DEFAULT_SIMPLE_SHAPES = ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]*2
-DEFAULT_MOVES = ["mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"]*7
 
 class Shape(db.Entity):
     """
@@ -24,7 +21,7 @@ class Shape(db.Entity):
     (optional) owner : Player
         The Player who owns the card. 
     (optional) owner_hand : Player 
-        ?
+        The Player who owns the card and has it in its current hand.
     """
     id = PrimaryKey(int, auto=True)
     shape_type = Required(str)
@@ -172,6 +169,9 @@ class Game(db.Entity):
     current_player_id = Optional(int)
     players = Set(Player, reverse="game")
     board = Required(str, default=DEFAULT_BOARD)
+    move_deck = [f"mov{i}" for i in range(1, 8)] * 7
+
+
     
     @db_session
     def create_player(self, player_name):
@@ -204,6 +204,112 @@ class Game(db.Entity):
         """This function ends the game. (...)"""
         pass
 
+    def set_turns_and_colors(self):
+        colors = ["r", "g", "b", "y"]
+        players = [p for p in self.players]
+        shuffle(players)
+        shuffle(colors)
+        N = len(self.players)
+
+        for i in range(N):
+            players[i].next = (i+1) % N
+            players[i].color = colors[i] 
+
+        self.current_player_id = players[0].id
+    
+
+    @staticmethod
+    @db_session
+    def sample_cards(k, cards):
+        """
+        Randomly sample k cards (without replacement) from a list of cards
+        in-place. The list is understood to be a list of strings. This entails
+        this method is applicable to `self.move_deck`. 
+
+        To ensure type consistency, this method always returns a list. If k == 0,
+        an empty list is returned. Otherwise, the sampled cards are returned.
+
+        Attributes 
+        ----------
+        k : int 
+            Number of cards to sample without replacement. 
+        cards : list{
+            The list to sample from.
+        """
+
+        if k == 0:
+            return []
+
+        if k > len(cards):
+            raise(ValueError("k > len(cards) : Cannot sample more elements than exist."))
+    
+        S = sample(cards, k)
+        
+        for s in S:
+            cards.remove(s)
+
+        return(S)
+
+    @db_session 
+    def deal_cards_randomly(self):
+        """
+        This function samples hands from their respective decks without
+        replacement, dealing them to the players. Importantly, it gives 
+        players the figure cards without specifying which of those will 
+        be in their hand. In other words, the `current_shapes` attribute 
+        of all players is left unmodified.
+
+        """
+        # (H)ard figures, (S)imple figures
+        H = [f"h{i}" for i in range(1, 19)] * 2
+        S = [f"s{i}" for i in range(1, 8)] * 2
+
+        hands = [self.move_deck, H, S]
+        ℓ = lambda x: len(x) // len(self.players)
+        cards_to_deal = [3, ℓ(H), ℓ(S)]
+
+        for player in self.players:
+            dealt_cards = [Game.sample_cards(k, cards) for (k, cards) in zip(cards_to_deal, hands)]
+
+            [player.moves.add( Move(move_type=m, owner=player) ) for m in dealt_cards[0]]
+            [player.shapes.add( Shape(shape_type=h, owner = player) ) for h in dealt_cards[1]]
+            [player.shapes.add( Shape(shape_type=s, owner = player) ) for s in dealt_cards[2]]
+
+
+        cards_dealt = [[ len(λ.shapes), len(λ.moves) ] for λ in self.players]
+        
+    
+    @db_session
+    def complete_player_hands(self, player : Player):
+        """
+        At a given point in time, a player may have less than 
+        49 // number_of_players movement cards and/or less than 
+        three figure cards in its current shapes. This method 
+        resolves this situation by dealing the necessary number 
+        of (a) movement cards from the `self.move_deck` and/or (b)
+        figure cards from `player.shapes`.
+
+        Parameters 
+        ----------
+        player : Player 
+            The player whose figure and movement hands will be completed.
+        """
+
+        m_cards_to_deal = 3 - len(player.moves)
+        f_cards_to_deal = 3 - len(player.current_shapes)
+
+        if m_cards_to_deal > 0:
+            dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
+            [player.moves.add(card) for card in dealt_move_cards]
+
+        if f_cards_to_deal > 0: 
+            shapes = [s for s in player.shapes]
+            dealt_fig_cards = Game.sample_cards(f_cards_to_deal, shapes)
+            [player.current_shapes.add(card) for card in dealt_fig_cards]
+
+
+
+
     @db_session            
     def initialize(self):
         """ 
@@ -213,73 +319,20 @@ class Game(db.Entity):
             (b) Setting up the order in which players will play. 
             (c) Shuffling and dealing cards to the players.
         """
+        # Shuffle the board
+        board_list = list(self.board)  # Convert the string to a list
+        shuffle(board_list)            # Shuffle the list in place
+        self.board = "".join(board_list)  # Join the shuffled list back into a string
+        # Set turns
+        self.set_turns_and_colors()
+        # Deal cards
+        self.deal_cards_randomly()
+        # Pass figure cards from `shapes` to `current_shapes` in all players 
+        [self.complete_player_hands(p) for p in self.players]
+        # Ready to go!
         self.is_init = True
-        # Set board state
-        board = list(self.board)
-        shuffle(board)
-        self.board = "".join(board)
-        # Set player order
-        all_ids = []
-        for p in self.players:
-            all_ids.append(p.id)
-        shuffle(all_ids)
-        next_id = {}
-        for index in range(len(all_ids)):
-            current_id = all_ids[index]
-            next_id[current_id] =  all_ids[(index + 1) % len(all_ids)]
-        for player in self.players:
-            player.next = next_id[player.id]
-        # Set player colors
-        colors = ["r", "g", "b", "y"]
-        shuffle(colors)
-        for position, player in enumerate(self.players):
-            player.next = next_id[player.id]
-        # Set player cards
-        p_quantity = len(self.players)
-        hard_shapes = list(DEFAULT_HARD_SHAPES)
-        shuffle(hard_shapes)
-        simple_shapes = list(DEFAULT_SIMPLE_SHAPES)
-        shuffle(simple_shapes)
-        move_types = list(DEFAULT_MOVES)
-        shuffle(move_types)
-        for player in self.players:
-            shapes = []
-            moves = []
-            shapes_in_hand = []
-            match p_quantity:
-                case 2:
-                    for x in range(7):
-                        shapes.append(simple_shapes.pop())
-                    for x in range(18):
-                        shapes.append(hard_shapes.pop())
-                    shuffle(shapes)
-                case 3:
-                    for x in range(4):
-                        shapes.append(simple_shapes.pop())
-                    for x in range(12):
-                        shapes.append(hard_shapes.pop())
-                    shuffle(shapes)
-                case 4:
-                    for x in range(3):
-                        shapes.append(simple_shapes.pop())
-                    for x in range(9):
-                        shapes.append(hard_shapes.pop())
-                    shuffle(shapes)
-            for x in range(3):
-                moves.append(move_types.pop())
-                shapes_in_hand.append(shapes.pop())
-            for m in moves:
-                mov = Move(move_type=m, owner=player)
-                player.moves.add(mov)
-            for s in shapes:
-                shape = Shape(shape_type=s, owner=player)
-                player.shapes.add(shape)
-            for h in shapes_in_hand:
-                hand = Shape(shape_type=h, owner_hand=player)
-                player.shapes.add(hand)
 
-        # Set current_player
-        self.current_player_id = choice(all_ids)
+
         commit()
     
     @db_session            

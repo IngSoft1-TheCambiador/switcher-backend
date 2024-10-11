@@ -39,33 +39,38 @@ def test_create_and_add_player():
     assert len(game.players) == 1
 
 @db_session
-def test_initialize_game():
+def test_initialize_game(n_players = 2):
+
+    # Valid f-cards
+    𝕍_fig = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", 
+         "h1", "h2", "h3", "h4", "h5", "h6", "h7", 
+         "h8", "h9", "h10", "h11", "h12", "h13", "h14", 
+         "h15", "h16", "h17", "h18"
+               ]
+    # Valid m-cards
+    𝕍_mov = ["mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"]
     game = Game(name="Test Game")
-    p1_id = game.create_player("Alice")
-    p1 = Player.get(id=p1_id)
-    p2_id = game.create_player("Bob")
-    p2 = Player.get(id=p2_id)
-    
+
+    for i in range(n_players):
+        game.create_player(str(i))
+
     game.initialize()
-
-    assert len([h for h in p1.current_shapes]) == 3
-    assert len([s for s in p1.shapes]) == 25
-    assert len([m for m in p1.moves]) == 3
-
-    valid_shapes = {"s1", "s2", "s3", "s4", "s5", "s6", "s7", "h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16", "h17", "h18"}
-    valid_moves = {"mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"}
-    for shape in p1.shapes:
-        assert shape.shape_type in valid_shapes
-    for move in p1.moves:
-        assert move.move_type in valid_moves
-    for shape in p2.shapes:
-        assert shape.shape_type in valid_shapes
-    for move in p2.moves:
-        assert move.move_type in valid_moves
-
+    print(game.move_deck)
+    print(len(game.move_deck))
+    assert len(game.move_deck) == 49 - 3*len(game.players)
     assert game.is_init is True
     assert game.current_player_id is not None
-    assert len(game.players) == 2
+    assert len(game.players) == n_players
+
+    for p in game.players:
+        assert len([h for h in p.current_shapes]) == 3
+        assert len([s for s in p.shapes]) == 50 // len(game.players)
+        assert len([m for m in p.moves]) == 3
+
+        assert all(shape.shape_type in 𝕍_fig for shape in p.shapes)
+        assert all(move.move_type in 𝕍_mov for move in p.moves)
+
+
 
 @db_session
 def test_remove_players():
@@ -110,5 +115,4 @@ def test_game_cleanup():
     game.cleanup()
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
-    
     
