@@ -317,8 +317,6 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         game.exchange_blocks(a, b, x, y)
         await manager.broadcast_in_game(game_id, "PARTIAL MOVE EFFECTED")
-        print("CHECK ME OUT : ", game.board)
-        print("CHECK ME OUT : ", game.old_board)
         return {
             "actual_board" : game.board, 
             "old_board" : game.old_board
