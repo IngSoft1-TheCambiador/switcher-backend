@@ -272,21 +272,20 @@ class Game(db.Entity):
         H = [f"h{i}" for i in range(1, 19)] * 2
         S = [f"s{i}" for i in range(1, 8)] * 2
 
-        hands = [self.move_deck, H, S]
+        decks = [self.move_deck, H, S]
         ℓ = lambda x: len(x) // len(self.players)
         cards_to_deal = [3, ℓ(H), ℓ(S)]
 
         for player in self.players:
-            dealt_cards = [Game.sample_cards(k, cards) for (k, cards) in zip(cards_to_deal, hands)]
+            # Deal cards to player.
+            dealt_hands = [Game.sample_cards(k, cards) for (k, cards) in zip(cards_to_deal, decks)]
+            
+            # Transform dealt cards (strings) to corresponding Pony entities.
+            [player.moves.add( Move(move_type=m, owner=player) ) for m in dealt_hands[0]]
+            [player.shapes.add( Shape(shape_type=h, owner = player) ) for h in dealt_hands[1]]
+            [player.shapes.add( Shape(shape_type=s, owner = player) ) for s in dealt_hands[2]]
 
-            [player.moves.add( Move(move_type=m, owner=player) ) for m in dealt_cards[0]]
-            [player.shapes.add( Shape(shape_type=h, owner = player) ) for h in dealt_cards[1]]
-            [player.shapes.add( Shape(shape_type=s, owner = player) ) for s in dealt_cards[2]]
 
-
-        cards_dealt = [[ len(λ.shapes), len(λ.moves) ] for λ in self.players]
-        
-    
     @db_session
     def complete_player_hands(self, player : Player):
         """
