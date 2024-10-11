@@ -175,7 +175,7 @@ class Game(db.Entity):
     current_player_id = Optional(int)
     players = Set(Player, reverse="game")
     board = Required(str, default=DEFAULT_BOARD)
-    board = Optional(str, default=DEFAULT_BOARD)
+    old_board = Optional(str, default=DEFAULT_BOARD)
     move_deck = [f"mov{i}" for i in range(1, 8)] * 7
 
 
