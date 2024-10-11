@@ -291,7 +291,7 @@ def game_state(socket_id : int):
             "initialized":  game.is_init,
             "player_ids": player_ids,
             "current_player": game.current_player_id,
-            "player_names": [p.name for p in game.players],
+            "player_names": names,
             "player_colors": colors,
             "player_f_cards": f_cards,
             "player_m_cards": m_cards,
