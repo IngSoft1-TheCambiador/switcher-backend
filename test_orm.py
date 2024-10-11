@@ -55,10 +55,12 @@ def test_initialize_game(n_players = 2):
         game.create_player(str(i))
 
     game.initialize()
+    print(game.move_deck)
+    print(len(game.move_deck))
     assert len(game.move_deck) == 49 - 3*len(game.players)
     assert game.is_init is True
     assert game.current_player_id is not None
-    assert len(game.players) == 2
+    assert len(game.players) == n_players
 
     for p in game.players:
         assert len([h for h in p.current_shapes]) == 3
@@ -109,4 +111,3 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
     
-test_initialize_game()    
