@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session, Database
-from orm import db, Game, Player  # Import your database object and entity classes
+from orm import db, Game, Player, DEFAULT_BOARD  # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -61,6 +61,7 @@ def test_initialize_game(n_players = 2):
     assert game.is_init is True
     assert game.current_player_id is not None
     assert len(game.players) == n_players
+    assert game.board == game.Δboard
 
     for p in game.players:
         assert len([h for h in p.current_shapes]) == 3
@@ -90,6 +91,9 @@ def test_remove_players():
     assert set([p.name for p in game.players]) == set([ "Alice", "Bob" ])
     assert bob.next == alice_id
 
+# This test is wrong! game.initialize() randomizes the board,
+# so the swap sometimes swaps equivalent elements, causing the 
+# the test to fail even though it performed correctly.
 @db_session
 def test_exchange_blocks():
     game = Game(name="Test Game")
@@ -97,11 +101,10 @@ def test_exchange_blocks():
     game.create_player("Bob")
     game.initialize()  # Initialize to shuffle the board
 
-    initial_board = game.board
-    game.exchange_blocks(1, 2, 5, 4)  # Exchange colors of two blocks
+    game.board = DEFAULT_BOARD
+    game.exchange_blocks(0, 0, 3, 5)  # Exchange colors of two blocks
     
-    assert game.board != initial_board  # Ensure board has changed
-    assert game.get_block_color(1, 2) != game.get_block_color(5, 4)  # Ensure colors exchanged
+    assert game.board == "yrrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbb"
 
 @db_session
 def test_game_cleanup():
@@ -116,3 +119,4 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
     
+test_exchange_blocks()
