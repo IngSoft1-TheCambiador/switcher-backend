@@ -324,7 +324,7 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
             "old_board" : game.old_board
         }
 
-@app.put("/commit_board")
+@app.post("/commit_board")
 async def commit_board(game_id : int): 
     """
     Takes a snapshot of the current board and stores it as the `old_board` in the game,
@@ -341,7 +341,7 @@ async def commit_board(game_id : int):
         if game is None:
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
-        game.apply_board_changes()
+        game.commit_board()
         await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE PERMANENTLY APPLIED")
         return {
             "true_board" : game.board

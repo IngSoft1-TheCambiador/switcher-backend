@@ -210,7 +210,8 @@ class Game(db.Entity):
     def end(self):
         """This function ends the game. (...)"""
         pass
-
+    
+    @db_session
     def set_turns_and_colors(self):
         colors = ["r", "g", "b", "y"]
         players = [p for p in self.players]
