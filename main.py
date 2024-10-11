@@ -1,11 +1,8 @@
-import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from connections import ConnectionManager, LISTING_ID
-from pony.orm import db_session, delete, commit
-from orm import Game, Player
-from fastapi.testclient import TestClient
+from connections import ConnectionManager
+from pony.orm import db_session
+from orm import Game
 from fastapi.middleware.cors import CORSMiddleware
-from connections import get_time
 
 app = FastAPI()
 
@@ -267,7 +264,7 @@ def game_state(socket_id : int):
         
     """
     
-    if not socket_id in manager.socket_to_game.keys():
+    if socket_id not in manager.socket_to_game.keys():
         return({"error:" : "Socket not in a game"})
 
     game_id = manager.socket_to_game[socket_id]

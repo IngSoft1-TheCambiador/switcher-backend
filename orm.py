@@ -1,6 +1,6 @@
-from random import shuffle, choice, sample
+from random import shuffle, sample
 from pony.orm import Database, PrimaryKey, Required, Set, Optional
-from pony.orm import db_session, select, commit
+from pony.orm import db_session, commit
 
 db = Database()
 
