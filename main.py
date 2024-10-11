@@ -266,11 +266,12 @@ def game_state(socket_id : int):
         ID of a websocket that lives in the game of interest.
         
     """
-    game_id = 0
-    if socket_id in manager.socket_to_game.keys():
-        game_id = manager.socket_to_game[socket_id]
-    else:
-        return({"error:" : "socket not in a game"})
+    
+    if not socket_id in manager.socket_to_game.keys():
+        return({"error:" : "Socket not in a game"})
+
+    game_id = manager.socket_to_game[socket_id]
+
     with db_session:
         game = Game.get(id=game_id)
         
@@ -278,12 +279,13 @@ def game_state(socket_id : int):
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
 
-        f_cards, m_cards, names, colors = {}, {}, {}, {}
+        f_cards, f_hands, m_cards, names, colors = {}, {}, {}, {}, {}
         player_ids = []
         for p in game.players:
             player_ids.append(p.id)
-            f_cards[p.id] = p.shapes
-            m_cards[p.id] = p.moves
+            f_cards[p.id] = [p.shape_type for p in p.shapes ]
+            f_hands[p.id] = [p.shape_type for p in p.current_shapes ]
+            m_cards[p.id] = [p.move_type for p in p.moves ]
             names[p.id] = p.name
             colors[p.id] = p.color
 
@@ -294,12 +296,15 @@ def game_state(socket_id : int):
             "player_names": names,
             "player_colors": colors,
             "player_f_cards": f_cards,
+            "player_f_hand": f_hands,
             "player_m_cards": m_cards,
             "owner_id" : game.owner_id,
             "max_players" : game.max_players,
             "min_players" : game.min_players,
             "name" : game.name,
-            "board" : game.board
+            "actual_board" : game.board,
+            "old_board" : game.old_board,
+            "move_deck" : game.move_deck
             })
 
 
