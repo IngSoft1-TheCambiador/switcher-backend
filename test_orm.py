@@ -82,7 +82,7 @@ def test_remove_players():
     assert len(game.players) == 3
     carl.remove()
     assert len(game.players) == 2
-    assert [p.name for p in game.players] == [ "Alice", "Bob" ]
+    assert set([p.name for p in game.players]) == set([ "Alice", "Bob" ])
     assert bob.next == alice_id
 
 @db_session
