@@ -220,7 +220,7 @@ class Game(db.Entity):
         N = len(self.players)
 
         for i in range(N):
-            players[i].next = (i+1) % N
+            players[i].next = players[(i+1) % N].id
             players[i].color = colors[i] 
 
         self.current_player_id = players[0].id
