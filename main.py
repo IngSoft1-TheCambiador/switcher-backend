@@ -128,6 +128,12 @@ async def leave_game(game_id : int, player_name : str):
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         
+        previous = Player.get(next=p.id)
+        previous.next = p.next
+        
+        if game.current_player_id == p.id:
+            game.current_player_id = p.next
+        
         game.players.remove(p)
         p.delete()
         
