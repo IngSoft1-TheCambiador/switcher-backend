@@ -103,7 +103,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
                             #detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
-async def leave_game(game_id : int, player_name : str):
+async def leave_game(socket_id : int, game_id : int, player_name : str):
     """
     Removes a player from a game.
 
@@ -136,6 +136,7 @@ async def leave_game(game_id : int, player_name : str):
         
         game.players.remove(p)
         p.delete()
+        manager.remove_from_game(socket_id, game_id)
         
         if len(game.players) == 1:
             # Handle: ganador por abandono
