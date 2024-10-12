@@ -137,6 +137,8 @@ async def leave_game(game_id : int, player_name : str):
                 winner_name = p.name
             await manager.end_game(game_id, winner_name)
             game.cleanup()
+        else:
+            await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_name}")
 
         return(
                 {GAME_ID : game_id, 
