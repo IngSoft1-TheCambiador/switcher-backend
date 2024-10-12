@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from connections import ConnectionManager
 from pony.orm import db_session
-from orm import Game
+from orm import Game, Player
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
