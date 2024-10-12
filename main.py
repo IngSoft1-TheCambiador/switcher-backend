@@ -103,7 +103,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
                             #detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
-def leave_game(game_id : int, player_name : str):
+async def leave_game(game_id : int, player_name : str):
     """
     Removes a player from a game.
 
@@ -127,24 +127,16 @@ def leave_game(game_id : int, player_name : str):
         if p is None:
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
-
+        
+        game.players.remove(p)
+        p.delete()
+        
         if len(game.players) == 1:
             # Handle: ganador por abandono
             for p in game.players:
                 winner_name = p.name
-            manager.end_game(game_id, winner_name)
+            await manager.end_game(game_id, winner_name)
             game.cleanup()
-            return (
-                {GAME_ID : game_id, 
-                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
-                )
-
-        if len(game.players) == 1:
-            # Handle: el creador abandono antes de que se una nadie
-            pass
-
-        game.players.remove(p)
-        p.delete()
 
         return(
                 {GAME_ID : game_id, 

@@ -7,6 +7,7 @@ from fastapi import WebSocket
 LISTING_ID = 0
 PULL_GAMES = "PULL GAMES"
 UPDATE_GAME = "UPDATE GAME"
+GAME_ENDED = "GAME_ENDED"
 
 
 def get_time():
