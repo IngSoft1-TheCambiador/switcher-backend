@@ -103,7 +103,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
                             #detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
-async def leave_game(socket_id : int, game_id : int, player_name : str):
+async def leave_game(socket_id : int, game_id : int, player_id : int):
     """
     Removes a player from a game.
 
@@ -111,8 +111,8 @@ async def leave_game(socket_id : int, game_id : int, player_name : str):
     ---------
     game_id : int 
         The ID of the game from which to remove the player.
-    player_name : str 
-        The name of the player to remove.
+    player_id : int 
+        The id of the player to remove.
     """
     with db_session:
         # somewhat ugly code raising the exception at two different places...
@@ -122,34 +122,35 @@ async def leave_game(socket_id : int, game_id : int, player_name : str):
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         
-        p = next(( p for p in game.players if p.name == player_name ), None)
+        p = next(( p for p in game.players if p.id == player_id ), None)
         
         if p is None:
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         
-        previous = Player.get(next=p.id)
-        previous.next = p.next
+        if (game.is_init):
+            previous = Player.get(next=p.id)
+            previous.next = p.next
         
-        if game.current_player_id == p.id:
-            game.current_player_id = p.next
+            if game.current_player_id == p.id:
+                game.current_player_id = p.next
         
         game.players.remove(p)
         p.delete()
         manager.remove_from_game(socket_id, game_id)
         
-        if len(game.players) == 1:
+        if ((len(game.players) == 1) & game.is_init):
             # Handle: ganador por abandono
             for p in game.players:
                 winner_name = p.name
             await manager.end_game(game_id, winner_name)
             game.cleanup()
         else:
-            await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_name}")
+            await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
         return(
                 {GAME_ID : game_id, 
-                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
+                 "message": f"Succesfully removed player with id {player_id} from game {game_id}"}
                 )
 
 @app.get("/list_players")
