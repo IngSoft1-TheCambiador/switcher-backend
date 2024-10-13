@@ -327,9 +327,9 @@ async def skip_turn(game_id : int, player_id : int):
     try:
         with db_session:
             # This fails if there is no game with game_id as id
-            game = Game[game_id]
+            game = Game.get(id=game_id)
             if player_id == game.current_player_id and game.is_init:
-                current = Player[player_id]
+                current = Player.get(player_id)
                 next_id = current.next
                 game.current_player_id = next_id
                 await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
