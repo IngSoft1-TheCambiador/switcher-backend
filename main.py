@@ -137,7 +137,7 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         
         game.players.remove(p)
         p.delete()
-        manager.remove_from_game(socket_id, game_id)
+        await manager.remove_from_game(socket_id, game_id)
         
         if ((len(game.players) == 1) & game.is_init):
             # Handle: ganador por abandono
