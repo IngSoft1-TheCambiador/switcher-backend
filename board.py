@@ -29,7 +29,7 @@ def rotate_figure(figure):
 def get_unique_figures(figures):
     """Get unique figures by rotating and removing duplicates."""
     all_rotations = []
-    for figure in figures:
+    for figure in figures.values():
         all_rotations.extend(rotate_figure(figure))
     unique_figures = list({tuple(map(tuple, fig)) for fig in all_rotations})
     return [np.array(fig) for fig in unique_figures]
@@ -123,27 +123,27 @@ def construct_6x6_matrix(figure, position):
 
 # Run this code if you want to see, step by step, what the algorithms 
 # are doing.
-#
-# board = gen_board()
-# reshaped = board_to_matrix(board)
-# labeled = label(reshaped, connectivity = 1)
-# figs = extract_figures(labeled)
-# print("Initial board : \n", board)
-# print("\nBoard as matrix: \n", reshaped)
-# print("\nConnected components (labeled board): \n", labeled)
-# print("\nExtracted figures: \n", figs)
-# 
-# print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-# res = detect_board_figures(board)
-# print_board(board)
-# for x in res:
-#     print("\nFIG : \n", x[0])
-#     print("POS : ", x[1])
-# 
-# # Construct 6x6 matrices for each matching figure
-# matching_6x6_matrices = [
-#     construct_6x6_matrix(fig, position) for fig, position in res
-# ]
-#
-# for m in matching_6x6_matrices:
-#     print("\n", m)
+
+board = gen_board()
+reshaped = board_to_matrix(board)
+labeled = label(reshaped, connectivity = 1)
+figs = extract_figures(labeled)
+print("Initial board : \n", board)
+print("\nBoard as matrix: \n", reshaped)
+print("\nConnected components (labeled board): \n", labeled)
+print("\nExtracted figures: \n", figs)
+
+print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+res = detect_board_figures(board)
+print_board(board)
+for x in res:
+    print("\nFIG : \n", x[0])
+    print("POS : ", x[1])
+
+# Construct 6x6 matrices for each matching figure
+matching_6x6_matrices = [
+    construct_6x6_matrix(fig, position) for fig, position in res
+]
+
+for m in matching_6x6_matrices:
+    print("\n", m)
