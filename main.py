@@ -389,11 +389,13 @@ async def undo_moves(game_id : int):
     """
 
     with db_session:
-        game = Game[game_id]
+        game = Game.get(id=game_id)
         if game is None:
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
-        game.undo_moves()
+
+        game.undo_moves() # <-------------------
+
         await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE DISCARDED")
         return {
             "true_board" : game.board
