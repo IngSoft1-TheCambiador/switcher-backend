@@ -7,6 +7,7 @@ from fastapi import WebSocket
 LISTING_ID = 0
 PULL_GAMES = "PULL GAMES"
 UPDATE_GAME = "UPDATE GAME"
+GAME_ENDED = "GAME_ENDED"
 
 
 def get_time():
@@ -166,6 +167,7 @@ class ConnectionManager:
         game_ended = f"{GAME_ENDED} {winner} {get_time()}"
         for socket_id in self.game_to_sockets[game_id]:
             await self.send_personal_message(socket_id, game_ended)
+            await self.remove_from_game(socket_id, game_id)
                                                                      
     async def remove_from_game(self, socket_id : int, game_id : int) -> None:
         """ 
@@ -181,7 +183,7 @@ class ConnectionManager:
         game_id : int 
             The ID of the game from which to remove the websocket.
         """
-
+        del self.socket_to_game[socket_id]
         self.game_to_sockets[game_id].remove(socket_id)
         self.game_to_sockets[LISTING_ID].append(socket_id) 
         await self.broadcast_in_list(f"{PULL_GAMES} {get_time()}")

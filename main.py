@@ -103,7 +103,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
                             #detail=GENERIC_SERVER_ERROR)
 
 @app.post("/leave_game")
-def leave_game(game_id : int, player_name : str):
+async def leave_game(socket_id : int, game_id : int, player_id : int):
     """
     Removes a player from a game.
 
@@ -111,8 +111,8 @@ def leave_game(game_id : int, player_name : str):
     ---------
     game_id : int 
         The ID of the game from which to remove the player.
-    player_name : str 
-        The name of the player to remove.
+    player_id : int 
+        The id of the player to remove.
     """
     with db_session:
         # somewhat ugly code raising the exception at two different places...
@@ -122,33 +122,35 @@ def leave_game(game_id : int, player_name : str):
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         
-        p = next(( p for p in game.players if p.name == player_name ), None)
+        p = next(( p for p in game.players if p.id == player_id ), None)
         
         if p is None:
             print("Player not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
-
-        if len(game.players) == 1:
+        
+        if (game.is_init):
+            previous = Player.get(next=p.id)
+            previous.next = p.next
+        
+            if game.current_player_id == p.id:
+                game.current_player_id = p.next
+        
+        game.players.remove(p)
+        p.delete()
+        await manager.remove_from_game(socket_id, game_id)
+        
+        if ((len(game.players) == 1) & game.is_init):
             # Handle: ganador por abandono
             for p in game.players:
                 winner_name = p.name
-            manager.end_game(game_id, winner_name)
+            await manager.end_game(game_id, winner_name)
             game.cleanup()
-            return (
-                {GAME_ID : game_id, 
-                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
-                )
-
-        if len(game.players) == 1:
-            # Handle: el creador abandono antes de que se una nadie
-            pass
-
-        game.players.remove(p)
-        p.delete()
+        else:
+            await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
         return(
                 {GAME_ID : game_id, 
-                 "message": f"Succesfully removed player {player_name} from game {game_id}"}
+                 "message": f"Succesfully removed player with id {player_id} from game {game_id}"}
                 )
 
 @app.get("/list_players")
@@ -329,7 +331,7 @@ async def skip_turn(game_id : int, player_id : int):
             # This fails if there is no game with game_id as id
             game = Game.get(id=game_id)
             if player_id == game.current_player_id and game.is_init:
-                current = Player.get(player_id)
+                current = Player.get(id=player_id)
                 next_id = current.next
                 game.current_player_id = next_id
                 await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
@@ -353,10 +355,18 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
     """
     Effects a partial move - i.e. changes the board in accordance to a played 
     movement card.
+
+    Parameters
+    ----------
+    game_id : int 
+        ID of the game where the new checkpoint board is to be committed.
+    a,b,x,y: int
+        Positions of the board to be swapped
+        Swap coordinates (a,b) and (x,y)
     """
 
     with db_session:
-        game = Game[game_id]
+        game = Game.get(id=game_id)
         if game is None:
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
@@ -365,6 +375,30 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
         return {
             "actual_board" : game.board, 
             "old_board" : game.old_board
+        }
+
+@app.post("/undo_moves")
+async def undo_moves(game_id : int): 
+    """
+    Undoes all the partial moves
+
+    Parameters
+    ----------
+    game_id : int 
+        ID of the game where the new checkpoint board is to be committed.
+    """
+
+    with db_session:
+        game = Game.get(id=game_id)
+        if game is None:
+            print("Game not found. Rasing HTTP Exception 400")
+            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+
+        game.undo_moves() # <-------------------
+
+        await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE DISCARDED")
+        return {
+            "true_board" : game.board
         }
 
 @app.post("/commit_board")
@@ -380,7 +414,7 @@ async def commit_board(game_id : int):
     """
 
     with db_session:
-        game = Game[game_id]
+        game = Game.get(id=game_id)
         if game is None:
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
@@ -406,7 +440,7 @@ async def start_game(game_id : int):
     try:
         with db_session:
             game_id = int(game_id) # ¿?
-            game = Game[game_id]
+            game = Game.get(id=game_id)
             game.initialize()
             await manager.broadcast_in_game(game_id, "INITIALIZED")
             return {"message" : f"Starting {game_id}"}

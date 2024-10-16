@@ -367,6 +367,14 @@ class Game(db.Entity):
         self.old_board = self.board 
         commit()
 
+    @db_session 
+    def undo_moves(self):
+        """
+        Undoes the partial moves storing the `old_board` in the `new_board`
+        """
+        self.board = self.old_board 
+        commit()
+
     @db_session            
     def exchange_blocks(self, i, j, k, l):
         """
