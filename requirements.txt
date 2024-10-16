@@ -40,3 +40,6 @@ uvicorn==0.30.6           # via -r requirements.in, fastapi, fastapi-cli
 uvloop==0.20.0            # via uvicorn
 watchfiles==0.24.0        # via uvicorn
 websockets==13.0.1        # via uvicorn
+numpy==2.1.2
+scikit-image==0.24.0
+scipy==1.14.1
