@@ -4,6 +4,35 @@ from skimage.measure import label, regionprops
 
 BOARD_SIZE = 6
 
+# Define all figures
+figures = {
+    "h1": [[1, 0, 0], [1, 1, 1], [1, 0, 0]],  #  
+    "h2": [[1, 1, 0, 0], [0, 1, 1, 1]],        # 
+    "h3": [[0, 0, 1, 1], [1, 1, 1, 0]],        # 
+    "h4": [[1, 0, 0], [1, 1, 0], [0, 1, 1]],   # 
+    "h5": [[1, 1, 1, 1, 1]],                   # 
+    "h6": [[1, 0, 0], [1, 0, 0], [1, 1, 1]],   # 
+    "h7": [[1, 1, 1, 1], [0, 0, 0, 1]],        # 
+    "h8": [[0, 0, 0, 1], [1, 1, 1, 1]],        # 
+    "h9": [[0, 0, 1], [1, 1, 1], [0, 1, 0]],   # 
+    "h10": [[0, 0, 1], [1, 1, 1], [1, 0, 0]],   # 
+    "h11": [[1, 0, 0], [1, 1, 1], [0, 1, 0]],   # 
+    "h12": [[1, 0, 0], [1, 1, 1], [0, 0, 1]],   # 
+    "h13": [[1, 1, 1, 1], [0, 0, 1, 0]],        # 
+    "h14": [[0, 0, 1, 0], [1, 1, 1, 1]],        # 
+    "h15": [[0, 1, 1], [1, 1, 1]],              # 
+    "h16": [[1, 0, 1], [1, 1, 1]],              # 
+    "h17": [[0, 1, 0], [1, 1, 1], [0, 1, 0]],   # 
+    "h18": [[1, 1, 1], [0, 1, 1]],              # 
+    "e1": [[0, 1, 1], [1, 1, 0]],              # 
+    "e2": [[1, 1], [1, 1]],                    # 
+    "e3": [[1, 1, 0], [0, 1, 1]],              # 
+    "e4": [[0, 1, 0], [1, 1, 1]],              # 
+    "e5": [[1, 1, 1], [0, 0, 1]],              # 
+    "e6": [[1, 1, 1, 1]],                      # 
+    "e7": [[0, 0, 1], [1, 1, 1]]               # 
+}
+
 def print_board(board):
     """Print the 6x6 board."""
     for row in board.reshape(BOARD_SIZE, BOARD_SIZE):
@@ -58,35 +87,6 @@ def filter_matching_figures(figures_with_positions, unique_figures):
     ]
 
 def detect_board_figures(board):
-    # Define all figures
-    figures = {
-        "h1": [[1, 0, 0], [1, 1, 1], [1, 0, 0]],  #  
-        "h2": [[1, 1, 0, 0], [0, 1, 1, 1]],        # 
-        "h3": [[0, 0, 1, 1], [1, 1, 1, 0]],        # 
-        "h4": [[1, 0, 0], [1, 1, 0], [0, 1, 1]],   # 
-        "h5": [[1, 1, 1, 1, 1]],                   # 
-        "h6": [[1, 0, 0], [1, 0, 0], [1, 1, 1]],   # 
-        "h7": [[1, 1, 1, 1], [0, 0, 0, 1]],        # 
-        "h8": [[0, 0, 0, 1], [1, 1, 1, 1]],        # 
-        "h9": [[0, 0, 1], [1, 1, 1], [0, 1, 0]],   # 
-        "h10": [[0, 0, 1], [1, 1, 1], [1, 0, 0]],   # 
-        "h11": [[1, 0, 0], [1, 1, 1], [0, 1, 0]],   # 
-        "h12": [[1, 0, 0], [1, 1, 1], [0, 0, 1]],   # 
-        "h13": [[1, 1, 1, 1], [0, 0, 1, 0]],        # 
-        "h14": [[0, 0, 1, 0], [1, 1, 1, 1]],        # 
-        "h15": [[0, 1, 1], [1, 1, 1]],              # 
-        "h16": [[1, 0, 1], [1, 1, 1]],              # 
-        "h17": [[0, 1, 0], [1, 1, 1], [0, 1, 0]],   # 
-        "h18": [[1, 1, 1], [0, 1, 1]],              # 
-        "e1": [[0, 1, 1], [1, 1, 0]],              # 
-        "e2": [[1, 1], [1, 1]],                    # 
-        "e3": [[1, 1, 0], [0, 1, 1]],              # 
-        "e4": [[0, 1, 0], [1, 1, 1]],              # 
-        "e5": [[1, 1, 1], [0, 0, 1]],              # 
-        "e6": [[1, 1, 1, 1]],                      # 
-        "e7": [[0, 0, 1], [1, 1, 1]]               # 
-    }
-
     # Generate unique rotated figures
     unique_figures = get_unique_figures(figures)
     board = board_to_matrix(board)
@@ -121,29 +121,16 @@ def construct_6x6_matrix(figure, position):
     
     return matrix
 
-# Run this code if you want to see, step by step, what the algorithms 
-# are doing.
-
-board = gen_board()
-reshaped = board_to_matrix(board)
-labeled = label(reshaped, connectivity = 1)
-figs = extract_figures(labeled)
-print("Initial board : \n", board)
-print("\nBoard as matrix: \n", reshaped)
-print("\nConnected components (labeled board): \n", labeled)
-print("\nExtracted figures: \n", figs)
-
-print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-res = detect_board_figures(board)
-print_board(board)
-for x in res:
-    print("\nFIG : \n", x[0])
-    print("POS : ", x[1])
-
-# Construct 6x6 matrices for each matching figure
-matching_6x6_matrices = [
-    construct_6x6_matrix(fig, position) for fig, position in res
-]
-
-for m in matching_6x6_matrices:
-    print("\n", m)
+def shapes_on_board(board):
+    '''
+    Takes a string representing a board and returns a dictionary with keys
+    being shape card codes and values being 6x6 boolean arrays with the corresponding
+    figure placed at the correct position
+    '''
+    res = detect_board_figures(board)
+    matching_6x6_matrices = {}
+    for fig, position in res:
+        for key, value in figures.items():
+            if np.array_equal(fig, value):
+                matching_6x6_matrices[key] = construct_6x6_matrix(fig, position)
+    return matching_6x6_matrices
