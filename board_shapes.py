@@ -24,13 +24,13 @@ figures = {
     "h16": [[1, 0, 1], [1, 1, 1]],              # 
     "h17": [[0, 1, 0], [1, 1, 1], [0, 1, 0]],   # 
     "h18": [[1, 1, 1], [0, 1, 1]],              # 
-    "e1": [[0, 1, 1], [1, 1, 0]],              # 
-    "e2": [[1, 1], [1, 1]],                    # 
-    "e3": [[1, 1, 0], [0, 1, 1]],              # 
-    "e4": [[0, 1, 0], [1, 1, 1]],              # 
-    "e5": [[1, 1, 1], [0, 0, 1]],              # 
-    "e6": [[1, 1, 1, 1]],                      # 
-    "e7": [[0, 0, 1], [1, 1, 1]]               # 
+    "s1": [[0, 1, 1], [1, 1, 0]],              # 
+    "s2": [[1, 1], [1, 1]],                    # 
+    "s3": [[1, 1, 0], [0, 1, 1]],              # 
+    "s4": [[0, 1, 0], [1, 1, 1]],              # 
+    "s5": [[1, 1, 1], [0, 0, 1]],              # 
+    "s6": [[1, 1, 1, 1]],                      # 
+    "s7": [[0, 0, 1], [1, 1, 1]]               # 
 }
 
 def print_board(board):
@@ -127,7 +127,9 @@ def shapes_on_board(board):
     being shape card codes and values being 6x6 boolean arrays with the corresponding
     figure placed at the correct position
     '''
-    res = detect_board_figures(board)
+    letters_to_nums = {"r": 1, "b": 2, "g": 3, "y": 4}
+    parsed_board = np.array([letters_to_nums[x] for x in board])
+    res = detect_board_figures(parsed_board)
     matching_6x6_matrices = {}
     for fig, position in res:
         for key, value in figures.items():

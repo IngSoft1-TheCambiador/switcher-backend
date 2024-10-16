@@ -3,6 +3,7 @@ from connections import ConnectionManager
 from pony.orm import db_session
 from orm import Game, Player
 from fastapi.middleware.cors import CORSMiddleware
+from board_shapes import shapes_on_board
 
 app = FastAPI()
 
@@ -287,7 +288,18 @@ def game_state(socket_id : int):
             m_cards[p.id] = [p.move_type for p in p.moves ]
             names[p.id] = p.name
             colors[p.id] = p.color
-
+        
+        shape_types = []
+        for cards in f_hands.values():
+            shape_types = shape_types + cards
+        
+        shapes = {k: v for k, v in shapes_on_board(game.board).items() if k in shape_types}
+        highlighted_squares = [0 for x in range(36)]
+        for bool_board in shapes.values():
+            flat_board = bool_board.reshape(-1)
+            for i in range(36):
+                highlighted_squares[i] = highlighted_squares[i] + flat_board[i]
+                
         return({
             "initialized":  game.is_init,
             "player_ids": player_ids,
@@ -303,7 +315,8 @@ def game_state(socket_id : int):
             "name" : game.name,
             "actual_board" : game.board,
             "old_board" : game.old_board,
-            "move_deck" : game.move_deck
+            "move_deck" : game.move_deck,
+            "highlighted_squares" : ''.join(str(x) for x in highlighted_squares)
             })
             
 @app.put("/skip_turn")
