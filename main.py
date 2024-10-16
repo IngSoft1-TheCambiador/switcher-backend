@@ -283,9 +283,9 @@ def game_state(socket_id : int):
         player_ids = []
         for p in game.players:
             player_ids.append(p.id)
-            f_cards[p.id] = [p.shape_type for p in p.shapes ]
-            f_hands[p.id] = [p.shape_type for p in p.current_shapes ]
-            m_cards[p.id] = [p.move_type for p in p.moves ]
+            f_cards[p.id] = sorted([p.shape_type for p in p.shapes ])
+            f_hands[p.id] = sorted([p.shape_type for p in p.current_shapes ])
+            m_cards[p.id] = sorted([p.move_type for p in p.moves ])
             names[p.id] = p.name
             colors[p.id] = p.color
         
@@ -364,7 +364,7 @@ async def skip_turn(game_id : int, player_id : int):
 
 
 @app.post("/partial_move")
-async def partial_move(game_id : int, a : int, b : int, x : int, y : int): 
+async def partial_move(game_id : int, player_id : int, mov : int, a : int, b : int, x : int, y : int): 
     """
     Effects a partial move - i.e. changes the board in accordance to a played 
     movement card.
@@ -373,6 +373,10 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
     ----------
     game_id : int 
         ID of the game where the new checkpoint board is to be committed.
+    player_id : int
+        ID of the player who used the move card.
+    mov : int
+        id of the mov (of the player).
     a,b,x,y: int
         Positions of the board to be swapped
         Swap coordinates (a,b) and (x,y)
@@ -384,7 +388,7 @@ async def partial_move(game_id : int, a : int, b : int, x : int, y : int):
             print("Game not found. Rasing HTTP Exception 400")
             raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
         game.exchange_blocks(a, b, x, y)
-        await manager.broadcast_in_game(game_id, "PARTIAL MOVE EFFECTED")
+        await manager.broadcast_in_game(game_id, "PARTIAL_MOVE {} {}".format(player_id, mov))
         return {
             "actual_board" : game.board, 
             "old_board" : game.old_board
