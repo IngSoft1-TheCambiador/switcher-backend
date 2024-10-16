@@ -56,7 +56,6 @@ def test_join_game(client, mock_game, mock_player, mock_manager):
             "player_names": ["John"]
         }
 
-        # Optionally, check the call count or other properties on the mock
         assert mock_game_instance.create_player.called  # Ensures create_player was called
 
 
