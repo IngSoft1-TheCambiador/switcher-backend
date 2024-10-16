@@ -289,7 +289,7 @@ class Game(db.Entity):
     @db_session
     def complete_player_hands(self, player : Player):
         """
-        At a given point in time, a player may have less than 
+        At any given point in time, a player may have less than 
         49 // number_of_players movement cards and/or less than 
         three figure cards in its current shapes. This method 
         resolves this situation by dealing the necessary number 

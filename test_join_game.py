@@ -5,6 +5,9 @@ from pony.orm import db_session, Set
 from main import app, manager  
 
 
+@pytest.fixture
+def client():
+    return TestClient(app)
 
 @pytest.fixture
 def mock_game(mocker):

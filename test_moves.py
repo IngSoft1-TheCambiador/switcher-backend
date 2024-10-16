@@ -42,7 +42,7 @@ def test_partial_moves(client, mock_game):
 
         a, b, x, y = 0, 0, 3, 5
         
-        response = client.post(f"/partial_move?game_id={mock_game_id}&a={a}&b={b}&x={x}&y={y}")
+        response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         assert response.status_code == 200
         
         assert response.json() == {
@@ -52,7 +52,7 @@ def test_partial_moves(client, mock_game):
         assert mock_game_instance.exchange_blocks.called  # Ensures create_player was called
 
         a, b, x, y = 0, 1, 5, 5
-        response = client.post(f"/partial_move?game_id={mock_game_id}&a={a}&b={b}&x={x}&y={y}")
+        response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         assert response.status_code == 200
         
         assert response.json() == {
@@ -94,9 +94,10 @@ def test_partial_moves(client, mock_game):
 
         a, b, x, y = 0, 0, 3, 5
         
-        response = client.post(f"/partial_move?game_id={mock_game_id}&a={a}&b={b}&x={x}&y={y}")
+        response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         a, b, x, y = 0, 1, 5, 5
-        response = client.post(f"/partial_move?game_id={mock_game_id}&a={a}&b={b}&x={x}&y={y}")
+        print(response.json())
+        response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         
         assert response.json() == {
             "actual_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",

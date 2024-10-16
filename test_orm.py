@@ -61,7 +61,7 @@ def test_initialize_game(n_players = 2):
     assert game.is_init is True
     assert game.current_player_id is not None
     assert len(game.players) == n_players
-    assert game.board == game.Δboard
+    assert game.board == game.old_board
 
     for p in game.players:
         assert len([h for h in p.current_shapes]) == 3
@@ -119,4 +119,4 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
     
-test_exchange_blocks()
+#test_initialize_game(2)
