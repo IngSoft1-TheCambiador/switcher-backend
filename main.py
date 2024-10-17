@@ -35,7 +35,7 @@ async def root():
     return {"message": "Hello World"}
 
 @app.get("/list_games")
-def list_games(page : int =1):
+def list_games(player_id : int, page : int =1):
     """
     
     This GET endpoint wraps available games into 8-element pages and 
@@ -54,7 +54,8 @@ def list_games(page : int =1):
         page = page # ¿?
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
-        sorted_games = Game.select().order_by(Game.id)[begin:end]
+        all_games = Game.select().order_by(Game.id)
+        sorted_games = [game for game in all_games if not game.is_init and len(game.players) != game.max_players][begin:end]
         response_data = []
         for game in sorted_games:
             if len(game.players) < game.max_players and not game.is_init:
@@ -95,6 +96,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str, min_p
             game_id = new_game.id
             game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
             await manager.add_to_game(socket_id, game_id)
+            await manager.broadcast_in_list("GAMES LIST UPDATED")
             return game_data
     except Exception as e:
         print(type(e))
@@ -139,13 +141,22 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         game.players.remove(p)
         p.delete()
         await manager.remove_from_game(socket_id, game_id)
+
+        if (not game.is_init and len(game.players) +1 == game.max_players):
+            await manager.broadcast_in_list("GAMES LIST UPDATED")
         
-        if ((len(game.players) == 1) & game.is_init):
+        if ((len(game.players) == 1) and game.is_init):
             # Handle: ganador por abandono
             for p in game.players:
                 winner_name = p.name
             await manager.end_game(game_id, winner_name)
             game.cleanup()
+
+        # TODO: 
+        # elif ( owner leaves ):
+        #     remove the game ...
+        #     await manager.broadcast_in_list("GAMES LIST UPDATED")
+
         else:
             await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
@@ -230,6 +241,9 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         # Check if the game has enough room for another player
         if len(game.players) >= game.max_players:
             return {"error": "Game is already full"}
+        
+        if len(game.players) +1 == game.max_players:
+            await manager.broadcast_in_list("GAMES LIST UPDATED")
 
         #if player_name in [ p.name for p in game.players ]:
             #return{"error" : "A player with this name already exists in the game"}
@@ -460,6 +474,7 @@ async def start_game(game_id : int):
             game = Game.get(id=game_id)
             game.initialize()
             await manager.broadcast_in_game(game_id, "INITIALIZED")
+            await manager.broadcast_in_list("GAMES LIST UPDATED")
             return {"message" : f"Starting {game_id}"}
     except:
         raise HTTPException(status_code=400,
