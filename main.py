@@ -456,7 +456,6 @@ async def start_game(game_id : int):
     """
     try:
         with db_session:
-            game_id = int(game_id) # ¿?
             game = Game.get(id=game_id)
             game.initialize()
             await manager.broadcast_in_game(game_id, "INITIALIZED")

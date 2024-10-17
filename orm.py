@@ -1,5 +1,5 @@
 from random import shuffle, sample
-from pony.orm import Database, PrimaryKey, Required, Set, Optional
+from pony.orm import Database, PrimaryKey, Required, Set, Optional, StrArray
 from pony.orm import db_session, commit
 
 db = Database()
@@ -176,10 +176,8 @@ class Game(db.Entity):
     players = Set(Player, reverse="game")
     board = Required(str, default=DEFAULT_BOARD)
     old_board = Optional(str, default=DEFAULT_BOARD)
-    move_deck = [f"mov{i}" for i in range(1, 8)] * 7
+    move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
 
-
-    
     @db_session
     def create_player(self, player_name):
         """
@@ -228,7 +226,7 @@ class Game(db.Entity):
 
     @staticmethod
     @db_session
-    def sample_cards(k, cards):
+    def sample_cards(k, cards, adjust_to_shortage=False):
         """
         Randomly sample k cards (without replacement) from a list of cards
         in-place. The list is understood to be a list of strings. This entails
@@ -245,11 +243,22 @@ class Game(db.Entity):
             The list to sample from.
         """
 
+        if k < 0:
+            raise(ValueError("Cannot sample k < 0 cards from a deck."))
+
         if k == 0:
             return []
 
         if k > len(cards):
-            raise(ValueError("k > len(cards) : Cannot sample more elements than exist."))
+            if not adjust_to_shortage:
+                raise(
+                        ValueError("""
+                        k > len(cards) : Cannot sample more elements than exist. If you 
+                        wish to deal as many cards as possible to handle this situation,
+                        set the `adjust_to_shortage` parameter to `True`.
+                                 """
+                    ))
+            k = len(cards)
     
         S = sample(cards, k)
         
@@ -286,6 +295,7 @@ class Game(db.Entity):
             [player.shapes.add( Shape(shape_type=s, owner = player) ) for s in dealt_hands[2]]
 
 
+
     @db_session
     def complete_player_hands(self, player : Player):
         """
@@ -307,13 +317,17 @@ class Game(db.Entity):
 
         if m_cards_to_deal > 0:
             dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
-            [player.moves.add(card) for card in dealt_move_cards]
+            [player.moves.add( Move(move_type=card, owner=player) ) for card in dealt_move_cards]
+            
 
         if f_cards_to_deal > 0: 
             shapes = [s for s in player.shapes]
-            dealt_fig_cards = Game.sample_cards(f_cards_to_deal, shapes)
+            dealt_fig_cards = Game.sample_cards(f_cards_to_deal, shapes, adjust_to_shortage=True)
             [player.current_shapes.add(card) for card in dealt_fig_cards]
-
+            # This is necessary because `sample_cards` will remove the sampled 
+            # cards from the local list `shapes`, not from the player's 
+            # `Set`.
+            [player.shapes.remove(card) for card in dealt_fig_cards]
 
 
 
@@ -326,6 +340,9 @@ class Game(db.Entity):
             (b) Setting up the order in which players will play. 
             (c) Shuffling and dealing cards to the players.
         """
+
+        if self.is_init:
+            raise(RuntimeError("Calling `initialize` on an already initialized game will cause errors."))
         # Shuffle the board
         board_list = list(self.board)  # Convert the string to a list
         shuffle(board_list)            # Shuffle the list in place

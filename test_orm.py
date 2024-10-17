@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session, Database
-from orm import db, Game, Player, DEFAULT_BOARD  # Import your database object and entity classes
+from orm import db, Game, Player, Shape, DEFAULT_BOARD  # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -9,15 +9,18 @@ from orm import db, Game, Player, DEFAULT_BOARD  # Import your database object a
 # autouse = True -----> usa este fixture en todos los tests, sin necesidad de que te lo especifique
 @pytest.fixture(scope='function', autouse=True)
 def setup_database():
-    
     db.provider = db.schema = None
     db.bind(provider='sqlite', filename=':memory:')
     db.generate_mapping(create_tables=True)
 
     with db_session:
-        yield  
+        yield
 
-    db.rollback()  
+    db.rollback()
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Game class tests
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @db_session
 def test_create_game():
@@ -39,7 +42,82 @@ def test_create_and_add_player():
     assert len(game.players) == 1
 
 @db_session
+def test_turn_and_color_setting():
+
+    game = Game(name = "Test Game")
+
+    pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
+
+    old_order = [Player[id] for id in pids]
+
+    # Assert no player has a color set
+    assert all( [Player[id].color == "" for id in pids] )
+    # Assert no player has cards
+    game.set_turns_and_colors()
+    assert not any( [Player[id].color == "" for id in pids] )
+    assert game.current_player_id is not None
+
+
+@db_session
+def test_complete_player_hands():
+
+
+    game = Game(name = "asdaosjd")
+
+    pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
+    game.initialize()
+
+
+    p = Player[pids[0]]
+
+    player_f_hand = [card for card in p.current_shapes]
+    player_m_hand = [card for card in p.moves]
+
+    player_f_deck = [card for card in p.shapes]
+
+    L = len(p.moves)
+    ℓ = len(game.move_deck)
+
+    # Remove two cards from the movement cards of the player
+    player_f_hand[0].delete()
+    player_f_hand[1].delete()
+    player_m_hand[0].delete()
+    player_m_hand[1].delete()
+
+    assert len(p.moves) == L - 2
+    assert len(p.current_shapes) == 1
+
+    game.complete_player_hands(p)
+    
+    assert len(p.current_shapes) == 3
+    assert len(p.moves) == L
+    assert len(game.move_deck) == ℓ - 2
+
+    # Empty shape deck
+    [shape.delete() for shape in p.shapes]
+    # Empty shape hand
+    [shape.delete() for shape in p.current_shapes]
+
+    # Create artifical shape deck with only 1 card
+    p.shapes.add(Shape(shape_type="a"))
+    # Create artifical shape hand with only 1 card
+    p.current_shapes.add(Shape(shape_type="b"))
+
+    assert len(p.current_shapes) == 1 
+    assert len(p.shapes) == 1
+    # Call complete_player_hands in the limit case, where 
+    # 2 hands are requested from deck but only one exist.
+    game.complete_player_hands(p)
+
+    assert len(p.current_shapes) == 2 
+    assert len(p.shapes) == 0
+
+
+
+@db_session
 def test_initialize_game(n_players = 2):
+
+
 
     # Valid f-cards
     𝕍_fig = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", 
@@ -51,25 +129,28 @@ def test_initialize_game(n_players = 2):
     𝕍_mov = ["mov1", "mov2", "mov3", "mov4", "mov5", "mov6", "mov7"]
     game = Game(name="Test Game")
 
+
     for i in range(n_players):
         game.create_player(str(i))
 
     game.initialize()
-    print(game.move_deck)
-    print(len(game.move_deck))
+
+    # Best to check that everything went okay in the specific dealing 
+    # with each player before checking the global aspectos of the `game`.
+    for p in game.players:
+        assert len([h for h in p.current_shapes]) == 3
+        assert len([s for s in p.shapes]) == (50 // len(game.players) ) - 3
+        assert len([m for m in p.moves]) == 3
+
+        assert all(shape.shape_type in 𝕍_fig for shape in p.shapes)
+        assert all(move.move_type in 𝕍_mov for move in p.moves)
+
     assert len(game.move_deck) == 49 - 3*len(game.players)
     assert game.is_init is True
     assert game.current_player_id is not None
     assert len(game.players) == n_players
     assert game.board == game.old_board
 
-    for p in game.players:
-        assert len([h for h in p.current_shapes]) == 3
-        assert len([s for s in p.shapes]) == 50 // len(game.players)
-        assert len([m for m in p.moves]) == 3
-
-        assert all(shape.shape_type in 𝕍_fig for shape in p.shapes)
-        assert all(move.move_type in 𝕍_mov for move in p.moves)
 
 
 
@@ -119,4 +200,31 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
     
-#test_initialize_game(2)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Game class tests
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
