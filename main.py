@@ -66,7 +66,8 @@ def list_games(page : int =1):
         return { GAMES_LIST : response_data }
 
 @app.put("/create_game/")
-async def create_game(socket_id : int, game_name : str, player_name : str, min_players : int =2, max_players : int =4):
+async def create_game(socket_id : int, game_name : str, player_name : str,
+                      min_players : int =2, max_players : int =4):
     """
     This PUT endpoint creates a new `Game` object in the database. The game is
     immediately associated to (a) a player (its host or creator) and (b) a
@@ -150,8 +151,11 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
         return(
-                {GAME_ID : game_id, 
-                 "message": f"Succesfully removed player with id {player_id} from game {game_id}"}
+            {GAME_ID : game_id, 
+                "message": f"""
+                    Succesfully removed player 
+                    with id {player_id} from game {game_id}
+                    """}
                 )
 
 @app.get("/list_players")
@@ -294,7 +298,7 @@ def game_state(socket_id : int):
             shape_types = shape_types + cards
         
         shapes = {k: v for k, v in shapes_on_board(game.board).items() if k in shape_types}
-        highlighted_squares = [0 for x in range(36)]
+        highlighted_squares = [0 for _ in range(36)]
         for bool_board in shapes.values():
             flat_board = bool_board.reshape(-1)
             for i in range(36):
@@ -339,27 +343,28 @@ async def skip_turn(game_id : int, player_id : int):
     player_id : int
         ID of the player
     """
-    try:
-        with db_session:
-            # This fails if there is no game with game_id as id
-            game = Game.get(id=game_id)
-            if player_id == game.current_player_id and game.is_init:
-                current = Player.get(id=player_id)
-                next_id = current.next
-                game.current_player_id = next_id
-                await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
-                return {"message" : f"Player {player_id} skipped in game {game_id}"}
-            else:
-                failure_message = f'''
-                Received a skip request in game {game_id} with player id {player_id},
-                but either there is no such game, no such player, no such player in
-                such game, or the player is not currently holding the 'current player'
-                position.
-                '''
-                return {"message" : failure_message}
-    except:
-        raise HTTPException(status_code=400,
-                            detail=f"Failed to skip turn in game {game_id} with player id {player_id}")
+    with db_session:
+       # This fails if there is no game with game_id as id
+
+        game = Game.get(id=game_id)
+        player = Player.get(id = player_id)
+
+        if game is None or player is None:
+            return {"message": f"Game {game_id} or player {player_id} do not exist."}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}." }
+        if not game.is_init:
+            return { "message": f"Game {game_id} has not yet begun." }
+        if player not in game.players:
+            return { "message": f"Game {game_id} has no player with id {player_id}." }
+
+
+        game.current_player_id = player.next
+        await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
+
+        return {
+            "message" : f"Player {player_id} skipped in game {game_id}"
+        }
     
 
 
@@ -418,29 +423,6 @@ async def undo_moves(game_id : int):
             "true_board" : game.board
         }
 
-@app.post("/commit_board")
-async def commit_board(game_id : int): 
-    """
-    Takes a snapshot of the current board and stores it as the `old_board` in the game,
-    effectively creating a checkpoint to return to if partial moves must be undone.
-
-    Parameters
-    ----------
-    game_id : int 
-        ID of the game where the new checkpoint board is to be committed.
-    """
-
-    with db_session:
-        game = Game.get(id=game_id)
-        if game is None:
-            print("Game not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
-        game.commit_board()
-        await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE PERMANENTLY APPLIED")
-        return {
-            "true_board" : game.board
-        }
-
 
 @app.put("/start_game")
 async def start_game(game_id : int):
@@ -454,13 +436,76 @@ async def start_game(game_id : int):
     game_id : int 
         ID of the game to start.
     """
-    try:
-        with db_session:
-            game = Game.get(id=game_id)
-            game.initialize()
-            await manager.broadcast_in_game(game_id, "INITIALIZED")
-            return {"message" : f"Starting {game_id}"}
-    except:
-        raise HTTPException(status_code=400,
-                            detail=f"Failed to initialize game {game_id}")
+    with db_session:
+        game = Game.get(id=game_id)
+        game.initialize()
+        await manager.broadcast_in_game(game_id, "INITIALIZED")
+        return {"message" : f"Starting {game_id}"}
+
+
+@app.put("/start_game")
+async def use_figure_card(game_id : int, player_id : int, fig : str):
+    """
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game to start.
+    """
+    with db_session:
+
+        game = Game.get(id=game_id)
+        player = Player.get(id = player_id)
+
+        if game is None or player is None:
+            return {"message": f"Game {game_id} or player {player_id} do not exist."}
+
+        # All exceptions 
+
+        shape = next(
+            (x for x in player.current_shapes if x.shape_type == fig ), 
+            None)
+
+        if shape is None:
+            return {"message": f"Player {player_id} does not have the {fig} card."}
+
+        shape.delete()
+        game.commit_board()
+
+        msg = f"""
+            Figure {fig} was used. Partial moves were permanently applied.
+            """
+        await manager.broadcast_in_game(game_id, msg)
+
+        return { 
+            "board": game.board,
+            "fig_used": fig
+        }
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
