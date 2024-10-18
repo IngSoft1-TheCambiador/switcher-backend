@@ -124,15 +124,20 @@ def construct_6x6_matrix(figure, position):
 def shapes_on_board(board):
     '''
     Takes a string representing a board and returns a dictionary with keys
-    being shape card codes and values being 6x6 boolean arrays with the corresponding
-    figure placed at the correct position
+    being shape card codes and values being lists of 6x6 boolean arrays with the corresponding
+    figures placed at the correct position
     '''
     letters_to_nums = {"r": 1, "b": 2, "g": 3, "y": 4}
     parsed_board = np.array([letters_to_nums[x] for x in board])
     res = detect_board_figures(parsed_board)
+    print(res)
     matching_6x6_matrices = {}
     for fig, position in res:
         for key, value in figures.items():
-            if np.array_equal(fig, value):
-                matching_6x6_matrices[key] = construct_6x6_matrix(fig, position)
+            if any(np.array_equal(fig, rot) for rot in rotate_figure(value)):
+                if key not in matching_6x6_matrices.keys():
+                    matching_6x6_matrices[key] = []
+                matching_6x6_matrices[key].append(construct_6x6_matrix(fig, position))
+                    
+                    
     return matching_6x6_matrices
