@@ -4,21 +4,11 @@ from pony.orm import db_session
 from orm import Game, Player
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, GENERIC_SERVER_ERROR
 
 app = FastAPI()
 
 manager = ConnectionManager()
-
-# Response field names
-PLAYER_ID = "player_id"
-GAME_ID = "game_id"
-PAGE_INTERVAL = 8 # Number of games listed per page
-GAME_NAME = "game_name"
-GAME_MIN = "min_players"
-GAME_MAX = "max_players"
-GAMES_LIST = "games_list"
-# Error details
-GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
 
 origins = ["*"]
 socket_id  : int
@@ -29,6 +19,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~ Wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+async def win_event(g : Game, p : Player):
+
+    await manager.end_game(g.id, p.name)
+    g.cleanup()
+    pass
+
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~ Endpoints ~~~~~~~~~~~~~~~~~~~~~~~~
 
 @app.get("/")
 async def root():
@@ -87,24 +91,22 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
     (optional) max_players : int = 4
         Maximum number of players which can join the game.
     """
-    try:
-        with db_session:
-            new_game = Game(name=game_name)
-            player_id = new_game.create_player(player_name)
-            new_game.owner_id = player_id
-            new_game.max_players = int(max_players)
-            new_game.min_players = int(min_players)
-            game_id = new_game.id
-            game_data = {GAME_ID : game_id, PLAYER_ID : player_id}
-            await manager.add_to_game(socket_id, game_id)
-            await manager.broadcast_in_list("GAMES LIST UPDATED")
-            return game_data
-    except Exception as e:
-        print(type(e))
-        print(e.args)
-        print(e)
-        #raise HTTPException(status_code=400,
-                            #detail=GENERIC_SERVER_ERROR)
+    with db_session:
+        new_game = Game(name=game_name, 
+                        min_players=min_players,
+                        max_players=max_players
+                        )
+        new_game.create_player(player_name)
+        new_game.max_players = max_players
+        new_game.min_players = min_players
+        await manager.add_to_game(socket_id, new_game.id)
+        await manager.broadcast_in_list("GAMES LIST UPDATED")
+        return {
+            GAME_ID : new_game.id, 
+            PLAYER_ID : new_game.owner_id,
+            GAME_MAX : new_game.max_players,
+            GAME_MIN : new_game.min_players
+        }
 
 @app.post("/leave_game")
 async def leave_game(socket_id : int, game_id : int, player_id : int):

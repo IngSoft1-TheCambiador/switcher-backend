@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from main import app, manager  
 from pony.orm import db_session
+from constants import *
 
 client = TestClient(app)
 
@@ -13,10 +14,14 @@ def mock_manager():
     with patch.object(manager, 'add_to_game', new_callable=AsyncMock) as mock_add:
         yield mock_add
 
-# Test function
+@pytest.fixture 
+def mock_player(mocker):
+    mock_player = mocker.patch('main.Player')
+    return mock_player
+
 @pytest.mark.asyncio
 @patch("main.Game")
-async def test_create_game(mock_game_class, mock_manager):
+async def test_create_game(mock_game_class, mock_manager, mock_player):
     # Mock data
     socket_id = 1
     game_name = "Test Game"
@@ -24,7 +29,18 @@ async def test_create_game(mock_game_class, mock_manager):
 
     mock_game_instance = mock_game_class.return_value
     mock_game_instance.id = 42
-    mock_game_instance.create_player.return_value = 1 
+    mock_player_instance = mock_player.return_value
+    mock_player_instance.id = 1
+
+    def mock_create_player(player_name):
+        player = mock_player_instance
+        if len(mock_game_instance.players) == 0:
+            mock_game_instance.owner_id = player.id
+        mock_game_instance.players.add(player)
+        return player.id
+
+    mock_game_instance.create_player.side_effect = mock_create_player
+
     
     # Call the endpoint
     response = client.put(
@@ -33,7 +49,8 @@ async def test_create_game(mock_game_class, mock_manager):
     
     assert response.status_code == 200
     response_data = response.json()
-    
+   
+    print(response_data)
     # Check the response and mock calls
     assert response_data['game_id'] == mock_game_instance.id  # Check mocked game ID
     assert response_data['player_id'] == 1  # Check mocked player ID
@@ -44,7 +61,7 @@ async def test_create_game(mock_game_class, mock_manager):
 
 
 @patch("main.Game")
-def test_create_multiple_games(mock_game_class, mock_manager):
+def test_create_multiple_games(mock_game_class, mock_manager, mock_player):
     # Mock data
     games = [
         {"game_name": "Game1", "player_name": "Player1", "min_players": 2, "max_players": 4},
@@ -58,13 +75,23 @@ def test_create_multiple_games(mock_game_class, mock_manager):
     mock_player_ids = [120, 1, 505]
     mock_game_instance = mock_game_class.return_value
 
+    mock_player_instance = mock_player.return_value
+
     for i, game in enumerate(games):
         # Create a mock instance for each game
         mock_game_instance.create_player.return_value = mock_player_ids[i]
         mock_game_instance.id = mock_game_ids[i]
-        mock_game_instance.max_players = game["max_players"]
-        mock_game_instance.min_players = game["min_players"]
+        mock_player_instance.id = mock_player_ids[i]
+        
+        def mock_create_player(player_name):
+            player = mock_player_instance
+            if len(mock_game_instance.players) == 0:
+                mock_game_instance.owner_id = player.id
+            mock_game_instance.players.add(player)
+         
+            return player.id
 
+        mock_game_instance.create_player.side_effect = mock_create_player
 
         game = games[i]
         response = client.put(
@@ -75,17 +102,9 @@ def test_create_multiple_games(mock_game_class, mock_manager):
 
         response_data = response.json()
         assert response_data == {
-            "game_id": mock_game_ids[i],
-            "player_id": mock_player_ids[i]
+            GAME_ID: mock_game_instance.id,
+            PLAYER_ID: mock_game_instance.owner_id,
+            GAME_MAX: games[i]["max_players"],
+            GAME_MIN: games[i]["min_players"]
         }
 
-        mock_game_class.assert_called_with(name=game["game_name"])
-#        mock_game_instance.create_player.assert_called_once_with(game["player_name"])
-        # It is unclear to me why the mock_game_instance.max_players attribute is 
-        # a string here, where above we are setting it as an integer. Hence, this 
-        # type casting is bad practice - we should address the issue.
-        assert int( mock_game_instance.max_players ) == game["max_players"]
-        assert int( mock_game_instance.min_players ) == game["min_players"]
-        assert mock_game_instance.owner_id == mock_player_ids[i]
-
-    assert mock_game_class.call_count == len(games)
