@@ -454,22 +454,30 @@ async def claim_figure(game_id : int,
     Arguments 
     ---------
     game_id : int 
-        ID of the game to start.
+        ID of the game.
+    player_id : int 
+        ID of the player.
+    fig : int 
+        Description of the figure card claimed.
+    x : int 
+        x-coord of the board position sent by player.
+    y : int 
+        y-coord of the board position sent by player.
     """
     with db_session:
 
         game = Game.get(id=game_id)
-        player = Player.get(id = player_id)
+        p = Player.get(id = player_id)
 
-        if game is None or player is None:
-            return {"message": f"Game {game_id} or player {player_id} do not exist."}
+        if game is None or p is None:
+            return {"message": f"Game {game_id} or p {player_id} do not exist."}
 
         shape = next(
-            (x for x in player.current_shapes if x.shape_type == fig ), 
+            (x for x in p.current_shapes if x.shape_type == fig ), 
             None)
 
         if shape is None:
-            return {"message": f"Player {player_id} does not have the {fig} card."}
+            return {"message": f"p {player_id} does not have the {fig} card."}
 
        
         λ = shapes_on_board(game.board)
@@ -481,16 +489,17 @@ async def claim_figure(game_id : int,
             return {"message": f"The figure {fig} is not in the current board."}
 
         if all( [ β[x][y] == 0 for β in λ.values()] ):
-            msg = f"""
-                The figure {fig} seems to exist at the board, but not at 
-                coordinate ({x}, {y})
-            """
+            msg = f"""Figure {fig} exists in board, but not at ({x}, {y})"""
             return {"message": msg}
 
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
         shape.delete()
         game.commit_board()
+
+        if len(p.current_shapes) == 0 and len(p.shapes) == 0:
+            # Win!
+            pass
 
         msg = f"""
             Figure {fig} was used. Partial moves were permanently applied.
