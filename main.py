@@ -518,13 +518,13 @@ async def claim_figure(game_id : int,
         λ = shapes_on_board(game.board)
         # Keep only the shapes of the board which match fig.
         # We have already checked that the player has the fig in its hand.
-        λ = {k : v for k, v in λ.items() if k == fig}
+        λ = [b for b in λ if b.shape_code == fig]
 
         if not λ:
             return {"message": f"The figure {fig} is not in the current board.",
                     STATUS: FAILURE}
 
-        if all( [ β[x][y] == 0 for β in λ.values()] ):
+        if all( [ β.board[x][y] == 0 for β in λ] ):
             msg = f"""Figure {fig} exists in board, but not at ({x}, {y})"""
             return {"message": msg, STATUS: FAILURE}
 
