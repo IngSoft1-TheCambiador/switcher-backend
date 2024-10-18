@@ -97,8 +97,6 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
                         max_players=max_players
                         )
         new_game.create_player(player_name)
-        new_game.max_players = max_players
-        new_game.min_players = min_players
         await manager.add_to_game(socket_id, new_game.id)
         await manager.broadcast_in_list("GAMES LIST UPDATED")
         return {

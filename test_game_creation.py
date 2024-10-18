@@ -81,6 +81,8 @@ def test_create_multiple_games(mock_game_class, mock_manager, mock_player):
         # Create a mock instance for each game
         mock_game_instance.create_player.return_value = mock_player_ids[i]
         mock_game_instance.id = mock_game_ids[i]
+        mock_game_instance.max_players = games[i]["max_players"]
+        mock_game_instance.min_players = games[i]["min_players"]
         mock_player_instance.id = mock_player_ids[i]
         
         def mock_create_player(player_name):
