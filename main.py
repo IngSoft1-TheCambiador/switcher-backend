@@ -443,8 +443,12 @@ async def start_game(game_id : int):
         return {"message" : f"Starting {game_id}"}
 
 
-@app.put("/start_game")
-async def use_figure_card(game_id : int, player_id : int, fig : str):
+@app.put("/claim_figure")
+async def claim_figure(game_id : int, 
+                          player_id : int, 
+                          fig : str, 
+                          x : int, y: int
+                          ):
     """
     
     Arguments 
@@ -460,8 +464,6 @@ async def use_figure_card(game_id : int, player_id : int, fig : str):
         if game is None or player is None:
             return {"message": f"Game {game_id} or player {player_id} do not exist."}
 
-        # All exceptions 
-
         shape = next(
             (x for x in player.current_shapes if x.shape_type == fig ), 
             None)
@@ -469,6 +471,24 @@ async def use_figure_card(game_id : int, player_id : int, fig : str):
         if shape is None:
             return {"message": f"Player {player_id} does not have the {fig} card."}
 
+       
+        λ = shapes_on_board(game.board)
+        # Keep only the shapes of the board which match fig.
+        # We have already checked that the player has the fig in its hand.
+        λ = {k : v for k, v in λ.items() if k == fig}
+
+        if not λ:
+            return {"message": f"The figure {fig} is not in the current board."}
+
+        if all( [ β[x][y] == 0 for β in λ.values()] ):
+            msg = f"""
+                The figure {fig} seems to exist at the board, but not at 
+                coordinate ({x}, {y})
+            """
+            return {"message": msg}
+
+        # If the code reaches this point, it is because: (a) the player has 
+        # the figure card, and (b) the figure exists at pos (x, y).
         shape.delete()
         game.commit_board()
 
@@ -477,34 +497,9 @@ async def use_figure_card(game_id : int, player_id : int, fig : str):
             """
         await manager.broadcast_in_game(game_id, msg)
 
-        return { 
-            "board": game.board,
-            "fig_used": fig
+        return {
+            "true_board" : game.board
         }
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
