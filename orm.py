@@ -190,8 +190,6 @@ class Game(db.Entity):
             The name of the player to be created.
         """
         player = Player(name=player_name, game=self)
-        if len(self.players) == 0:
-            self.owner_id = player.id
         self.players.add(player)
         commit()
         return player.id

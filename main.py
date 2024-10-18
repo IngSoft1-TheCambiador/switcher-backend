@@ -98,13 +98,14 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
                         min_players=min_players,
                         max_players=max_players
                         )
-        new_game.create_player(player_name)
+        pid = new_game.create_player(player_name)
+        new_game.owner_id = pid
         await manager.add_to_game(socket_id, new_game.id)
         await manager.broadcast_in_list("GAMES LIST UPDATED")
         return {
 
             GAME_ID : new_game.id, 
-            PLAYER_ID : new_game.owner_id,
+            PLAYER_ID : pid,
             GAME_MAX : new_game.max_players,
             GAME_MIN : new_game.min_players,
             STATUS : SUCCESS,
