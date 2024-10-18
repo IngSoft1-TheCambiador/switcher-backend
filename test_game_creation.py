@@ -50,7 +50,6 @@ async def test_create_game(mock_game_class, mock_manager, mock_player):
     assert response.status_code == 200
     response_data = response.json()
    
-    print(response_data)
     # Check the response and mock calls
     assert response_data['game_id'] == mock_game_instance.id  # Check mocked game ID
     assert response_data['player_id'] == 1  # Check mocked player ID
@@ -107,6 +106,7 @@ def test_create_multiple_games(mock_game_class, mock_manager, mock_player):
             GAME_ID: mock_game_instance.id,
             PLAYER_ID: mock_game_instance.owner_id,
             GAME_MAX: games[i]["max_players"],
-            GAME_MIN: games[i]["min_players"]
+            GAME_MIN: games[i]["min_players"],
+            STATUS: SUCCESS
         }
 

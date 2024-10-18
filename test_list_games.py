@@ -1,13 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from main import list_games
+from constants import *
 
-PLAYER_ID = "player_id"
-GAME_ID = "game_id"
-GAME_NAME = "game_name"
-GAME_MIN = "min_players"
-GAME_MAX = "max_players"
-GAMES_LIST = "games_list"
 
 # Mock Game class
 class MockGame:
@@ -44,7 +39,8 @@ def test_list_games(mock_select, mock_games):
             {GAME_ID: 1, GAME_NAME: 'Game 1', GAME_MIN: 2, GAME_MAX: 4},
             {GAME_ID: 3, GAME_NAME: 'Game 3', GAME_MIN: 3, GAME_MAX: 6},
             {GAME_ID: 4, GAME_NAME: 'Game 4', GAME_MIN: 2, GAME_MAX: 4},
-        ]
+        ],
+        STATUS: SUCCESS
     }
 
     assert response == expected

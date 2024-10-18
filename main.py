@@ -4,7 +4,8 @@ from pony.orm import db_session
 from orm import Game, Player
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
-from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, GENERIC_SERVER_ERROR
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, GENERIC_SERVER_ERROR, STATUS
+from constants import SUCCESS, FAILURE
 
 app = FastAPI()
 
@@ -39,7 +40,7 @@ async def root():
     return {"message": "Hello World"}
 
 @app.get("/list_games")
-def list_games(player_id : int, page : int =1):
+def list_games(page : int =1):
     """
     
     This GET endpoint wraps available games into 8-element pages and 
@@ -68,7 +69,8 @@ def list_games(player_id : int, page : int =1):
                     GAME_MIN : game.min_players,
                     GAME_MAX : game.max_players}
                 response_data.append(game_row)
-        return { GAMES_LIST : response_data }
+        return { GAMES_LIST : response_data,
+                STATUS : SUCCESS }
 
 @app.put("/create_game/")
 async def create_game(socket_id : int, game_name : str, player_name : str,
@@ -100,10 +102,12 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
         await manager.add_to_game(socket_id, new_game.id)
         await manager.broadcast_in_list("GAMES LIST UPDATED")
         return {
+
             GAME_ID : new_game.id, 
             PLAYER_ID : new_game.owner_id,
             GAME_MAX : new_game.max_players,
-            GAME_MIN : new_game.min_players
+            GAME_MIN : new_game.min_players,
+            STATUS : SUCCESS,
         }
 
 @app.post("/leave_game")
@@ -163,11 +167,9 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
 
         return(
             {GAME_ID : game_id, 
-                "message": f"""
-                    Succesfully removed player 
-                    with id {player_id} from game {game_id}
-                    """}
-                )
+                "message": f"Succesfully removed player with id {player_id} from game {game_id}",
+             STATUS : SUCCESS
+             })
 
 @app.get("/list_players")
 def list_players(game_id : int):
@@ -182,7 +184,8 @@ def list_players(game_id : int):
     with db_session:
         g = Game.get(id=game_id)
         g.dump_players()
-        return {"Players": [p.name for p in g.players]}
+        return {"Players": [p.name for p in g.players],
+                STATUS : SUCCESS}
 
 
 @app.websocket("/ws/connect")
@@ -240,11 +243,13 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         
         # Check if the game exists
         if not game:
-            return {"error": "Game not found"}
+            return {"error": "Game not found",
+                    STATUS : FAILURE}
         
         # Check if the game has enough room for another player
         if len(game.players) >= game.max_players:
-            return {"error": "Game is already full"}
+            return {"error": "Game is already full",
+                    STATUS: FAILURE}
         
         if len(game.players) +1 == game.max_players:
             await manager.broadcast_in_list("GAMES LIST UPDATED")
@@ -257,7 +262,8 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         return ({
                 "player_id": pid,
                 "owner_id": game.owner_id,
-                "player_names": [p.name for p in game.players]
+                "player_names": [p.name for p in game.players],
+                STATUS: SUCCESS
                 })
 
 @app.get("/game_state")
@@ -286,7 +292,8 @@ def game_state(socket_id : int):
     """
     
     if socket_id not in manager.socket_to_game.keys():
-        return({"error:" : "Socket not in a game"})
+        return({"error:" : "Socket not in a game",
+               STATUS : FAILURE})
 
     game_id = manager.socket_to_game[socket_id]
 
@@ -334,7 +341,8 @@ def game_state(socket_id : int):
             "actual_board" : game.board,
             "old_board" : game.old_board,
             "move_deck" : game.move_deck,
-            "highlighted_squares" : ''.join(str(x) for x in highlighted_squares)
+            "highlighted_squares" : ''.join(str(x) for x in highlighted_squares),
+            STATUS : SUCCESS
             })
             
 @app.put("/skip_turn")
@@ -364,20 +372,25 @@ async def skip_turn(game_id : int, player_id : int):
         player = Player.get(id = player_id)
 
         if game is None or player is None:
-            return {"message": f"Game {game_id} or player {player_id} do not exist."}
-        if game.current_player_id != player_id:
-            return { "message": f"It is not the turn of player {player_id}." }
+            return {"message": f"Game {game_id} or player {player_id} do not exist.",
+                    STATUS : FAILURE}
         if not game.is_init:
-            return { "message": f"Game {game_id} has not yet begun." }
+            return { "message": f"Game {game_id} has not yet begun.",
+                    STATUS : FAILURE}
         if player not in game.players:
-            return { "message": f"Game {game_id} has no player with id {player_id}." }
+            return { "message": f"Game {game_id} has no player with id {player_id}.",
+                    STATUS : FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
 
 
         game.current_player_id = player.next
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
         return {
-            "message" : f"Player {player_id} skipped in game {game_id}"
+            "message" : f"Player {player_id} skipped in game {game_id}",
+            STATUS : SUCCESS
         }
     
 
@@ -410,7 +423,8 @@ async def partial_move(game_id : int, player_id : int, mov : int, a : int, b : i
         await manager.broadcast_in_game(game_id, "PARTIAL_MOVE {} {}".format(player_id, mov))
         return {
             "actual_board" : game.board, 
-            "old_board" : game.old_board
+            "old_board" : game.old_board,
+            STATUS: SUCCESS
         }
 
 @app.post("/undo_moves")
@@ -434,7 +448,8 @@ async def undo_moves(game_id : int):
 
         await manager.broadcast_in_game(game_id, "PARTIAL MOVES WERE DISCARDED")
         return {
-            "true_board" : game.board
+            "true_board" : game.board,
+            STATUS: SUCCESS
         }
 
 
@@ -454,7 +469,8 @@ async def start_game(game_id : int):
         game = Game.get(id=game_id)
         game.initialize()
         await manager.broadcast_in_game(game_id, "INITIALIZED")
-        return {"message" : f"Starting {game_id}"}
+        return {"message" : f"Starting {game_id}",
+                STATUS: SUCCESS}
 
 
 @app.put("/claim_figure")
@@ -484,14 +500,16 @@ async def claim_figure(game_id : int,
         p = Player.get(id = player_id)
 
         if game is None or p is None:
-            return {"message": f"Game {game_id} or p {player_id} do not exist."}
+            return {"message": f"Game {game_id} or p {player_id} do not exist.",
+                    STATUS: FAILURE}
 
         shape = next(
             (x for x in p.current_shapes if x.shape_type == fig ), 
             None)
 
         if shape is None:
-            return {"message": f"p {player_id} does not have the {fig} card."}
+            return {"message": f"p {player_id} does not have the {fig} card.",
+                    STATUS: FAILURE}
 
        
         λ = shapes_on_board(game.board)
@@ -500,11 +518,12 @@ async def claim_figure(game_id : int,
         λ = {k : v for k, v in λ.items() if k == fig}
 
         if not λ:
-            return {"message": f"The figure {fig} is not in the current board."}
+            return {"message": f"The figure {fig} is not in the current board.",
+                    STATUS: FAILURE}
 
         if all( [ β[x][y] == 0 for β in λ.values()] ):
             msg = f"""Figure {fig} exists in board, but not at ({x}, {y})"""
-            return {"message": msg}
+            return {"message": msg, STATUS: FAILURE}
 
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
@@ -522,7 +541,8 @@ async def claim_figure(game_id : int,
         await manager.broadcast_in_game(game_id, msg)
 
         return {
-            "true_board" : game.board
+            "true_board" : game.board,
+            STATUS: SUCCESS
         }
 
 

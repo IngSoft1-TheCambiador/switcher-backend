@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from pony.orm import db_session, Set
 from main import app, manager  
+from constants import STATUS, SUCCESS
 
 
 @pytest.fixture
@@ -54,7 +55,7 @@ def test_leave_game(client, mock_game, mock_player, mock_manager):
         
         assert response.json() == {
             "game_id": mock_game_instance.id,
-            "message": f"Succesfully removed player with id 2 from game {mock_game_instance.id}"
+            "message": f"Succesfully removed player with id 2 from game {mock_game_instance.id}", STATUS: SUCCESS
         }
 
 def test_turn_adjustment(client, mock_game, mock_player, mock_manager):

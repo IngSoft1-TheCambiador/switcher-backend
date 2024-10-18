@@ -4,6 +4,7 @@ from unittest.mock import patch, AsyncMock
 from pony.orm import db_session
 from main import app, manager
 from orm import Shape, DEFAULT_BOARD
+from constants import STATUS, SUCCESS, FAILURE
 
 @pytest.fixture
 def client():
@@ -63,7 +64,8 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager, mock
 
         assert response.status_code == 200
         assert response.json() == {
-            "true_board": mock_game_instance.board
+            "true_board": mock_game_instance.board,
+            STATUS: SUCCESS
         }
 
 
@@ -81,7 +83,7 @@ def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):
         response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&x={x}&y={y}")
         
         assert response.status_code == 200
-        assert response.json() == {"message": f"Game {mock_game_id} or p {mock_player_id} do not exist."}
+        assert response.json() == {"message": f"Game {mock_game_id} or p {mock_player_id} do not exist.", STATUS: FAILURE}
 
 def test_claim_figure_shape_not_found(client, mock_game, mock_player, mock_shape):
     mock_game_id = 1
@@ -103,7 +105,7 @@ def test_claim_figure_shape_not_found(client, mock_game, mock_player, mock_shape
         response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig=h2&x={x}&y={y}")
 
         assert response.status_code == 200
-        assert response.json() == {"message": f"p {mock_player_id} does not have the h2 card."}
+        assert response.json() == {"message": f"p {mock_player_id} does not have the h2 card.", STATUS: FAILURE}
 
 def test_claim_figure_not_on_board(client, mock_game, mock_player, mock_shapes_on_board, mock_shape):
     mock_game_id = 1
@@ -131,7 +133,7 @@ def test_claim_figure_not_on_board(client, mock_game, mock_player, mock_shapes_o
         response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&x={x}&y={y}")
 
         assert response.status_code == 200
-        assert response.json() == {"message": f"The figure {fig} is not in the current board."}
+        assert response.json() == {"message": f"The figure {fig} is not in the current board.", STATUS: FAILURE}
 #
 def test_claim_figure_not_at_position(client, mock_game, mock_player, mock_shapes_on_board, mock_shape):
     mock_game_id = 1
@@ -157,5 +159,6 @@ def test_claim_figure_not_at_position(client, mock_game, mock_player, mock_shape
 
         assert response.status_code == 200
         assert response.json() == {
-            "message" : f"Figure {fig} exists in board, but not at ({x}, {y})"
+            "message" : f"Figure {fig} exists in board, but not at ({x}, {y})",
+            STATUS: FAILURE
         }

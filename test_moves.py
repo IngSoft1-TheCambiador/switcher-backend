@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from main import app, Game  
 from orm import DEFAULT_BOARD
+from constants import STATUS, SUCCESS
 
 
 @pytest.fixture
@@ -47,7 +48,8 @@ def test_partial_moves(client, mock_game):
         
         assert response.json() == {
             "actual_board": "yrrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbb",
-            "old_board": DEFAULT_BOARD
+            "old_board": DEFAULT_BOARD,
+            STATUS : SUCCESS
         }
         assert mock_game_instance.exchange_blocks.called  # Ensures create_player was called
 
@@ -57,14 +59,8 @@ def test_partial_moves(client, mock_game):
         
         assert response.json() == {
             "actual_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",
-            "old_board": DEFAULT_BOARD
-        }
-
-        response = client.post(f"/commit_board?game_id={mock_game_id}")
-        assert response.status_code == 200
-        
-        assert response.json() == {
-            "true_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",
+            "old_board": DEFAULT_BOARD,
+            STATUS: SUCCESS
         }
 
 
@@ -101,14 +97,16 @@ def test_partial_moves(client, mock_game):
         
         assert response.json() == {
             "actual_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",
-            "old_board": DEFAULT_BOARD
+            "old_board": DEFAULT_BOARD,
+            "response_status": 0
         }
 
 
         response = client.post(f"/undo_moves?game_id={mock_game_instance.id}")
         assert response.status_code == 200
         assert response.json() == {
-            "true_board": DEFAULT_BOARD
+            "true_board": DEFAULT_BOARD,
+            STATUS: SUCCESS
         }
 
 

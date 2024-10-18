@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from pony.orm import db_session, Set
 from main import app, manager  
+from constants import STATUS, SUCCESS, FAILURE
 
 
 @pytest.fixture
@@ -53,7 +54,8 @@ def test_join_game(client, mock_game, mock_player, mock_manager):
         assert response.json() == {
             "player_id": mock_player_id,
             "owner_id": mock_game_id,
-            "player_names": ["John"]
+            "player_names": ["John"],
+            STATUS: SUCCESS
         }
 
         assert mock_game_instance.create_player.called  # Ensures create_player was called
@@ -69,7 +71,7 @@ def test_join_game_errors(client, mock_game, mock_player, mock_manager):
         # game.
         mock_game.get.return_value = None
         response = client.post(f"/join_game?socket_id=0&game_id=123123123&player_name=Anything")
-        assert response.json() == {"error": "Game not found"}
+        assert response.json() == {"error": "Game not found", STATUS: FAILURE}
        
 
         # Test "Game is full" error.
@@ -82,15 +84,5 @@ def test_join_game_errors(client, mock_game, mock_player, mock_manager):
         mock_game_instance.players = [1, 2, 3, 4]
         mock_game_instance.max_players = 4
         response = client.post(f"/join_game?socket_id={0}&game_id={mock_game_id}&player_name=Anything")
-        assert response.json() == {"error": "Game is already full"}
-
-        # Test "A player with this name already exists in the game" error
-#        mock_game_instance.create_player.return_value = mock_player_id
-#        mock_player_instance = mock_player.return_value
-#        mock_player_instance.name = "John"
-#        mock_game_instance.players = [mock_player_instance.name]
-#        
-#        response = client.post(f"/join_game?socket_id={0}&game_id={mock_game_id}&player_name=John")
-#        assert response.json() == {"error": "A player with this name already exists in the game"}
-#        
-#        assert not mock_game_instance.create_player.called  # Ensure player was NOT created
+        assert response.json() == {"error": "Game is already full",
+                                   STATUS: FAILURE}

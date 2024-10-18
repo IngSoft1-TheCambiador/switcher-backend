@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from pony.orm import db_session, Set
 from main import app, manager  
-
+from constants import STATUS, SUCCESS
 
 @pytest.fixture
 def client():
@@ -36,7 +36,8 @@ def test_start_game(client, mock_game, mock_manager):
         assert response.status_code == 200
         
         assert response.json() == {
-            "message": "Starting 666"
+            "message": "Starting 666",
+            STATUS: SUCCESS
         }
 
         assert mock_game_instance.initialize.called  # Ensures create_player was called
