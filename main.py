@@ -315,20 +315,17 @@ def game_state(socket_id : int):
             names[p.id] = p.name
             colors[p.id] = p.color
         
-        shape_types = []
+        ingame_shapes = []
+        
         for cards in f_hands.values():
-            shape_types = shape_types + cards
+            ingame_shapes = ingame_shapes + cards
             
-        print("FIGURAS DETECTADAS:\n")
-        print(shapes_on_board(game.board))
-        print("\n")
-        shapes = {k: v for k, v in shapes_on_board(game.board).items() if k in shape_types}
+        boolean_boards = [b for b in shapes_on_board(game.board) if b.shape_code in ingame_shapes]
         highlighted_squares = [0 for _ in range(36)]
-        for bool_board_list in shapes.values():
-            for bool_board in bool_board_list:
-                flat_board = bool_board.reshape(-1)
-                for i in range(36):
-                    highlighted_squares[i] = highlighted_squares[i] + flat_board[i]
+        
+        for b in boolean_boards:
+            flat_board = b.board.reshape(-1)
+            highlighted_squares = highlighted_squares + flat_board
                 
         return({
             "initialized":  game.is_init,

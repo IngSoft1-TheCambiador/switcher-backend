@@ -33,6 +33,16 @@ figures = {
     "s7": [[0, 0, 1], [1, 1, 1]]               # 
 }
 
+class BooleanBoard:
+    def __init__(self, shape, position):
+        for key, value in figures.items():
+            if any(np.array_equal(shape, rot) for rot in rotate_figure(value)):
+                self.board = construct_6x6_matrix(shape, position)
+                self.shape_code = key
+    
+    def __str__(self):
+        return f"CODIGO: {self.shape_code}\nTABLERO: {self.board}\n"
+
 def print_board(board):
     """Print the 6x6 board."""
     for row in board.reshape(BOARD_SIZE, BOARD_SIZE):
@@ -131,13 +141,9 @@ def shapes_on_board(board):
     parsed_board = np.array([letters_to_nums[x] for x in board])
     res = detect_board_figures(parsed_board)
     print(res)
-    matching_6x6_matrices = {}
+    matching_6x6_matrices = []
+    
     for fig, position in res:
-        for key, value in figures.items():
-            if any(np.array_equal(fig, rot) for rot in rotate_figure(value)):
-                if key not in matching_6x6_matrices.keys():
-                    matching_6x6_matrices[key] = []
-                matching_6x6_matrices[key].append(construct_6x6_matrix(fig, position))
-                    
-                    
+        matching_6x6_matrices.append(BooleanBoard(fig, position))
+        
     return matching_6x6_matrices
