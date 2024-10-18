@@ -479,6 +479,7 @@ async def start_game(game_id : int):
 async def claim_figure(game_id : int, 
                           player_id : int, 
                           fig : str, 
+                          used_movs : str,
                           x : int, y: int
                           ):
     """
@@ -530,6 +531,16 @@ async def claim_figure(game_id : int,
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
         shape.delete()
+
+            # delete used moves by the player
+        used_movs_list = used_movs.split(",")
+
+        for move in p.moves:
+            if (move.move_type in used_movs_list):
+                game.move_deck.append(move.move_type)
+                move.delete()
+                used_movs_list.remove(move.move_type)
+
         game.commit_board()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:

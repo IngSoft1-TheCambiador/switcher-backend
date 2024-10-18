@@ -4,7 +4,7 @@ from pony.orm import db_session, commit
 
 db = Database()
 
-DEFAULT_BOARD = "r" * 6 + "b" * 6 + "g" * 6 + "y" * 6 + "r" * 6 + "b" * 6
+DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
 
 class Shape(db.Entity):
     """
