@@ -512,7 +512,8 @@ async def claim_figure(game_id : int,
         game.commit_board()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
-            # Win!
+            await manager.end_game(game_id, p.name)
+            game.cleanup()
             pass
 
         msg = f"""
