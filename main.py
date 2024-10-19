@@ -29,7 +29,6 @@ async def win_event(g : Game, p : Player):
 
     await manager.end_game(g.id, p.name)
     g.cleanup()
-    pass
 
 
 
@@ -190,14 +189,15 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         game = Game.get(id=game_id)
 
         if game is None:
-            print("Game not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE }
         
         p = next(( p for p in game.players if p.id == player_id ), None)
         
         if p is None:
-            print("Player not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+            return {"message": f"Player {player_id} is not in game {game_id}.",
+                    STATUS : FAILURE }
+        
         
         if (game.is_init):
             previous = Player.get(next=p.id)
@@ -364,8 +364,8 @@ def game_state(socket_id : int):
         game = Game.get(id=game_id)
         
         if game is None:
-            print("Game not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE }
 
         f_cards, f_hands, m_cards, names, colors = {}, {}, {}, {}, {}
         player_ids = []
@@ -480,9 +480,13 @@ async def partial_move(game_id : int, player_id : int, mov : int, a : int, b : i
 
     with db_session:
         game = Game.get(id=game_id)
+        player = Player.get(id=player_id)
         if game is None:
-            print("Game not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE}
+        if player is None:
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE}
         game.exchange_blocks(a, b, x, y)
         await manager.broadcast_in_game(game_id, "PARTIAL_MOVE {} {}".format(player_id, mov))
         return {
@@ -505,8 +509,8 @@ async def undo_moves(game_id : int):
     with db_session:
         game = Game.get(id=game_id)
         if game is None:
-            print("Game not found. Rasing HTTP Exception 400")
-            raise HTTPException(status_code=400, detail=GENERIC_SERVER_ERROR)
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE }
 
         game.undo_moves() # <-------------------
 
@@ -545,6 +549,13 @@ async def claim_figure(game_id : int,
                           x : int, y: int
                           ):
     """
+
+    When a player attempts to claim a figure card of his hand by 
+    pointing to a figure in the board, a request to this endpoint 
+    is sent. The endpoint checks if the chosen position of the 
+    board actually contains the specified figure. If it does, 
+    it removes the figure card from the player's hand, the 
+    movement cards he may have used, and commits the board.
     
     Arguments 
     ---------
@@ -554,6 +565,9 @@ async def claim_figure(game_id : int,
         ID of the player.
     fig : int 
         Description of the figure card claimed.
+    used_movs : str 
+        A string of the form `m₁,m₂,…,mₙ` with mᵢ being the 
+        ith movement card used by the current player.
     x : int 
         x-coord of the board position sent by player.
     y : int 
@@ -578,11 +592,9 @@ async def claim_figure(game_id : int,
 
        
         λ = shapes_on_board(game.board)
-        # Keep only the shapes of the board which match fig.
-        # We have already checked that the player has the fig in its hand.
         λ = [b for b in λ if b.shape_code == fig]
 
-        if not λ:
+        if len(λ) == 0:
             return {"message": f"The figure {fig} is not in the current board.",
                     STATUS: FAILURE}
 
@@ -593,25 +605,15 @@ async def claim_figure(game_id : int,
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
         shape.delete()
-
-            # delete used moves by the player
-        used_movs_list = used_movs.split(",")
-
-        for move in p.moves:
-            if (move.move_type in used_movs_list):
-                game.move_deck.append(move.move_type)
-                move.delete()
-                used_movs_list.remove(move.move_type)
-
+        used_movs = used_movs.split(",")
+        game.retrieve_player_move_cards(used_movs)
         game.commit_board()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
-            await manager.end_game(game_id, p.name)
-            game.cleanup()
-            pass
+            await win_event(game, p)
 
         msg = f"""
-            Figure {fig} was used. Partial moves were permanently applied.
+            Figure {fig} was claimed by player {p.id}. Partial moves were permanently applied.
             """
         await manager.broadcast_in_game(game_id, msg)
 

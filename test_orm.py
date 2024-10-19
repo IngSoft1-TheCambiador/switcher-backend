@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session, Database
-from orm import db, Game, Player, Shape, DEFAULT_BOARD  # Import your database object and entity classes
+from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD  # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -183,9 +183,32 @@ def test_exchange_blocks():
     game.initialize()  # Initialize to shuffle the board
 
     game.board = DEFAULT_BOARD
-    game.exchange_blocks(0, 0, 3, 5)  # Exchange colors of two blocks
+    game.exchange_blocks(0, 0, 5, 5)  # Exchange colors of two blocks
     
-    assert game.board == "yrrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbb"
+    assert game.board == "yrrrrrrrrbbbbbbbbbgggggggggyyyyyyyyr"
+
+@db_session 
+def test_retrieve_move_cards():
+
+    game = Game(name="Test Game")
+
+
+    ids = [game.create_player(str(i)) for i in range(3)]
+    game.initialize()
+
+    p = Player.get(id=ids[1])
+
+    game.move_deck = []
+    p.moves = [Move(move_type="m1"), Move(move_type="m2"), Move(move_type="m3"), 
+               Move(move_type="m3"), Move(move_type="m2") ]
+
+    game.retrieve_player_move_cards(p.id, ["m2", "m3", "m3"])
+
+    assert len(p.moves) == 2 
+    assert [m.move_type for m in p.moves] == [ "m2", "m1" ]
+    assert len(game.move_deck) == 3 
+    assert game.move_deck == ["m2", "m3", "m3"]
+
 
 @db_session
 def test_game_cleanup():
@@ -200,9 +223,6 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
     
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Game class tests
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 

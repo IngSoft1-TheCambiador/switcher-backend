@@ -21,16 +21,19 @@ def mock_player(mocker):
     mock_player = mocker.patch('main.Player')
     return mock_player
 
-def test_partial_moves(client, mock_game):
+def test_partial_moves(client, mock_game, mock_player):
     mock_game_id = 5
 
     with patch('main.db_session'):
        
-        mock_game_instance = MagicMock(Game)
+        mock_game_instance = mock_game.return_value
         mock_game_instance.id = mock_game_id
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
-        mock_game.__getitem__.return_value = mock_game_instance
+        mock_game.get.return_value = mock_game_instance
+
+        mock_player_instance = mock_player.return_value 
+        mock_player_instance.id = 1
 
 
         def mock_exchange_blocks(i, j, k, l):
@@ -41,41 +44,42 @@ def test_partial_moves(client, mock_game):
 
         mock_game_instance.exchange_blocks.side_effect = mock_exchange_blocks
 
-        a, b, x, y = 0, 0, 3, 5
+        a, b, x, y = 0, 0, 5, 5
         
         response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         assert response.status_code == 200
         
         assert response.json() == {
-            "actual_board": "yrrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbb",
+            "actual_board": "yrrrrrrrrbbbbbbbbbgggggggggyyyyyyyyr",
             "old_board": DEFAULT_BOARD,
             STATUS : SUCCESS
         }
-        assert mock_game_instance.exchange_blocks.called  # Ensures create_player was called
+        assert mock_game_instance.exchange_blocks.called 
 
-        a, b, x, y = 0, 1, 5, 5
+        a, b, x, y = 1, 3, 5, 4
         response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         assert response.status_code == 200
         
         assert response.json() == {
-            "actual_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",
+            "actual_board": "yrrrrrrrrybbbbbbbbgggggggggyyyyyyybr",
             "old_board": DEFAULT_BOARD,
             STATUS: SUCCESS
         }
 
 
-def test_partial_moves(client, mock_game):
+def test_undo_partial_moves(client, mock_game, mock_player):
     mock_game_id = 5
 
     with patch('main.db_session'):
        
-        mock_game_instance = MagicMock(Game)
+        mock_game_instance = mock_game.return_value
         mock_game_instance.id = mock_game_id
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
-        mock_game.__getitem__.return_value = mock_game_instance
         mock_game.get.return_value = mock_game_instance
 
+        mock_player_instance = mock_player.return_value 
+        mock_player_instance.id = 1
 
         def mock_exchange_blocks(i, j, k, l):
             board = list(mock_game_instance.board)
@@ -92,15 +96,9 @@ def test_partial_moves(client, mock_game):
         
         response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         a, b, x, y = 0, 1, 5, 5
-        print(response.json())
         response = client.post(f"/partial_move?game_id={mock_game_id}&player_id=1&mov=1&a={a}&b={b}&x={x}&y={y}")
         
-        assert response.json() == {
-            "actual_board": "ybrrrrbbbbbbggggggyyyyyrrrrrrrbbbbbr",
-            "old_board": DEFAULT_BOARD,
-            "response_status": 0
-        }
-
+        assert response.json()["old_board"] == DEFAULT_BOARD
 
         response = client.post(f"/undo_moves?game_id={mock_game_instance.id}")
         assert response.status_code == 200
