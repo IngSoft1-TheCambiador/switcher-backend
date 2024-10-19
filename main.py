@@ -220,10 +220,12 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             await manager.end_game(game_id, winner_name)
             game.cleanup()
 
-        # TODO: 
         # Cancel game if owner leaves
         elif (not game.is_init and game.owner_id == player_id):
             await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
+            # unlink from the game all websockets remaining
+            for socket in manager.game_to_sockets[game_id]:
+                await manager.remove_from_game(socket, game_id)
             game.cleanup()
 
         else:
