@@ -62,7 +62,6 @@ def test_join_game(client, mock_game, mock_player, mock_manager):
 
 def test_join_game_errors(client, mock_game, mock_player, mock_manager):
     mock_game_id = 5
-    mock_player_id = 10
 
     with patch('main.db_session'):
        

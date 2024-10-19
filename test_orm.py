@@ -48,8 +48,6 @@ def test_turn_and_color_setting():
 
     pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
 
-    old_order = [Player[id] for id in pids]
-
     # Assert no player has a color set
     assert all( [Player[id].color == "" for id in pids] )
     # Assert no player has cards
@@ -72,8 +70,6 @@ def test_complete_player_hands():
 
     player_f_hand = [card for card in p.current_shapes]
     player_m_hand = [card for card in p.moves]
-
-    player_f_deck = [card for card in p.shapes]
 
     L = len(p.moves)
     ℓ = len(game.move_deck)
