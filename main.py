@@ -60,17 +60,79 @@ def list_games(page : int =1):
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
         all_games = Game.select().order_by(Game.id)
-        sorted_games = [game for game in all_games if not game.is_init and len(game.players) != game.max_players][begin:end]
+        games = [game for game in all_games if not game.is_init and len(game.players) < game.max_players][begin:end]
         response_data = []
-        for game in sorted_games:
-            if len(game.players) < game.max_players and not game.is_init:
-                game_row = {GAME_ID : game.id, 
-                    GAME_NAME : game.name,
-                    GAME_MIN : game.min_players,
-                    GAME_MAX : game.max_players}
-                response_data.append(game_row)
+        for game in games:
+            game_row = {GAME_ID : game.id, 
+                GAME_NAME : game.name,
+                GAME_MIN : game.min_players,
+                GAME_MAX : game.max_players}
+            response_data.append(game_row)
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
+
+def valid_search(text, min, max):
+    return (
+        (text == "" or text.isalnum()) and
+        len(text)<=15 and
+        min in ["", "2", "3", "4"] and
+        max in ["", "2", "3", "4"] and
+        (min=="" or max=="" or int(min)<=int(max))
+    )
+
+@app.get("/search_games")
+def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
+    """
+    This GET endpoint is equivalent to list_games but it filters the games
+    that include <text> in their name, ignoring the letter case
+    and that have the specified max and min values
+    - if a parameter has its default value, it is not filtered by this value
+    - if they have an invalid value, it returns error
+
+    Arguments
+    ----------
+    page : int 
+        The page to return.
+    text : str
+        The string to filter the games with.
+    min : int
+        Minimum number of players.
+    max : int
+        Maximum number of players.
+    """
+
+    if not valid_search(text, min, max):
+        return {"error": "Invalid search",
+                    STATUS: FAILURE}
+
+    with db_session:
+        page = page # ¿?
+        begin = PAGE_INTERVAL * (page - 1)
+        end = PAGE_INTERVAL * page
+        all_games = Game.select().order_by(Game.id)
+        games = [game for game in all_games
+            if not game.is_init and len(game.players) < game.max_players
+        ]
+
+        # Filter the list of games
+        games = [game for game in games
+            if  text.lower() in game.name.lower()
+                and (min == "" or game.min_players == int(min))
+                and (max == "" or game.max_players == int(max))
+        ]
+
+        games = games[begin:end]
+        response_data = []
+        for game in games:
+            game_row = {GAME_ID : game.id, 
+                GAME_NAME : game.name,
+                GAME_MIN : game.min_players,
+                GAME_MAX : game.max_players}
+            response_data.append(game_row)
+        return { GAMES_LIST : response_data,
+                STATUS : SUCCESS }
+
+    
 
 @app.put("/create_game/")
 async def create_game(socket_id : int, game_name : str, player_name : str,
@@ -363,9 +425,9 @@ async def skip_turn(game_id : int, player_id : int):
     Arguments
     ---------
     game_id : int 
-        ID of the game
+        ID of the game.
     player_id : int
-        ID of the player
+        ID of the player.
     """
     with db_session:
        # This fails if there is no game with game_id as id
