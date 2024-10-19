@@ -606,7 +606,7 @@ async def claim_figure(game_id : int,
         # the figure card, and (b) the figure exists at pos (x, y).
         shape.delete()
         used_movs = used_movs.split(",")
-        game.retrieve_player_move_cards(used_movs)
+        game.retrieve_player_move_cards(player_id, used_movs)
         game.commit_board()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
