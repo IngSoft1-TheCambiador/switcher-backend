@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 from fastapi import WebSocket
-from connections import ConnectionManager, LISTING_ID, PULL_GAMES, UPDATE_GAME, GAME_ENDED
+from connections import ConnectionManager, LISTING_ID
 
 @pytest.fixture
 def connection_manager():

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from main import app, Game  
+from unittest.mock import patch
+from main import app  
 from orm import DEFAULT_BOARD
 from constants import STATUS, SUCCESS
 

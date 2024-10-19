@@ -34,6 +34,12 @@ figures = {
 }
 
 class BooleanBoard:
+    """
+    A Boolean Board is conceptually a pair ℬ = (α, β) with 
+    α ∈ {0, 1}⁶ˣ⁶ and β the shape type (str) which represents 
+    a figure. 
+    """
+
     def __init__(self, shape, position):
         for key, value in figures.items():
             if any(np.array_equal(shape, rot) for rot in rotate_figure(value)):

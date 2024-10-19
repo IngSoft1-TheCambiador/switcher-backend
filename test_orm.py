@@ -1,6 +1,6 @@
 # conftest.py
 import pytest
-from pony.orm import db_session, Database
+from pony.orm import db_session
 from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD  # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 

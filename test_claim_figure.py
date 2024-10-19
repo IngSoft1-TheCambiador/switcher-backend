@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock, Mock
+from unittest.mock import patch, AsyncMock
 from main import app, manager
 from orm import DEFAULT_BOARD
 from constants import STATUS, SUCCESS, FAILURE
