@@ -221,9 +221,10 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             game.cleanup()
 
         # TODO: 
-        # elif ( owner leaves ):
-        #     remove the game ...
-        #     await manager.broadcast_in_list("GAMES LIST UPDATED")
+        # Cancel game if owner leaves
+        elif (not game.is_init and game.owner_id == player_id):
+            await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
+            game.cleanup()
 
         else:
             await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
