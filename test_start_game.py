@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from pony.orm import db_session, Set
 from main import app, manager  
 from constants import STATUS, SUCCESS
 

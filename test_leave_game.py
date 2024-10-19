@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from pony.orm import db_session, Set
 from main import app, manager  
 from constants import STATUS, SUCCESS
 
@@ -119,6 +118,8 @@ def test_game_ending(client, mock_game, mock_player, mock_manager):
         mock_game.get.return_value = mock_game_instance
         
         response = client.post(f"/leave_game?socket_id={1}&game_id={mock_game_instance.id}&player_id={player_b.id}")
+
+        assert response.status_code == 200
 
         assert mock_game_instance.cleanup.called
 

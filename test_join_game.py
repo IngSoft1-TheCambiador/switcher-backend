@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from pony.orm import db_session, Set
 from main import app, manager  
 from constants import STATUS, SUCCESS, FAILURE
 
@@ -63,14 +62,13 @@ def test_join_game(client, mock_game, mock_player, mock_manager):
 
 def test_join_game_errors(client, mock_game, mock_player, mock_manager):
     mock_game_id = 5
-    mock_player_id = 10
 
     with patch('main.db_session'):
        
         # Mock the case where Game.get(id) is None; i.e. request to join non-existing 
         # game.
         mock_game.get.return_value = None
-        response = client.post(f"/join_game?socket_id=0&game_id=123123123&player_name=Anything")
+        response = client.post("/join_game?socket_id=0&game_id=123123123&player_name=Anything")
         assert response.json() == {"error": "Game not found", STATUS: FAILURE}
        
 

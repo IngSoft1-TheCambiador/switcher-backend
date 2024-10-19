@@ -328,6 +328,20 @@ class Game(db.Entity):
             [player.shapes.remove(card) for card in dealt_fig_cards]
 
 
+    @db_session 
+    def retrieve_player_move_cards(self, player_id :int, move_types : list):
+
+        p = Player.get(id=player_id) 
+            
+        for m_type in move_types:
+            m_card = next ( (m for m in p.moves if m.move_type == m_type), None )
+            if m_card is None:
+                continue
+            self.move_deck.append(m_type)
+            m_card.delete()
+
+
+        
 
     @db_session            
     def initialize(self):
