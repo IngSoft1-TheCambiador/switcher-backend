@@ -165,7 +165,8 @@ class ConnectionManager:
         
     async def end_game(self, game_id : int, winner : str) -> None:
         game_ended = f"{GAME_ENDED} {winner} {get_time()}"
-        for socket_id in self.game_to_sockets[game_id]:
+        sockets_in_game = self.game_to_sockets[game_id].copy()
+        for socket_id in sockets_in_game:
             await self.send_personal_message(socket_id, game_ended)
             await self.remove_from_game(socket_id, game_id)
                                                                      
