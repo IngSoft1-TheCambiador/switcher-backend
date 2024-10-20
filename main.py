@@ -220,10 +220,17 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             await manager.end_game(game_id, winner_name)
             game.cleanup()
 
-        # TODO: 
-        # elif ( owner leaves ):
-        #     remove the game ...
-        #     await manager.broadcast_in_list("GAMES LIST UPDATED")
+        # Cancel game if owner leaves
+        elif (not game.is_init and game.owner_id == player_id):
+            await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
+            # unlink from the game all websockets remaining
+            sockets_in_game = manager.game_to_sockets[game_id].copy()
+            
+            for s in sockets_in_game:
+                print(f"manager.game_to_sockets[{game_id}]: {manager.game_to_sockets[game_id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
+                await manager.remove_from_game(s, game_id)
+
+            game.cleanup()
 
         else:
             await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
