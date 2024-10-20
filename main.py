@@ -450,6 +450,7 @@ async def skip_turn(game_id : int, player_id : int):
 
 
         game.current_player_id = player.next
+        game.complete_player_hands(player)
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
         return {
