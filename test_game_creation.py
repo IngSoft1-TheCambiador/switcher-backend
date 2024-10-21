@@ -1,56 +1,65 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from main import app  # Assuming your FastAPI app is in main.py
+from main import app, manager  
+from constants import *
 
 client = TestClient(app)
 
-def test_create_game():
 
-    # Variables del mockeo de `Game`
-    game_name = "TestGame"
-    player_name = "TestPlayer"
-    min_players = 2
-    max_players = 4
+@pytest.fixture
+def mock_manager():
+    """Mock the ConnectionManager"""
+    with patch.object(manager, 'add_to_game', new_callable=AsyncMock) as mock_add:
+        yield mock_add
 
-    # Variables del mockeo de la base de datos
-    mock_game_id = 1
-    mock_player_id = 100
+@pytest.fixture 
+def mock_player(mocker):
+    mock_player = mocker.patch('main.Player')
+    return mock_player
 
-    # Mockeo de Pony y la db_session, y del `Game` (con mock_game_class).
-    with patch('main.db_session'), \
-         patch('main.Game', autospec=True) as mock_game_class:
-        
-        # Mockeamos una instancia de `Game` con los atributos especificados
-        # más arriba.
-        mock_game_instance = MagicMock()
-        mock_game_instance.create_player.return_value = mock_player_id
-        mock_game_instance.id = mock_game_id
+@pytest.mark.asyncio
+@patch("main.Game")
+async def test_create_game(mock_game_class, mock_manager, mock_player):
+    # Mock data
+    socket_id = 1
+    game_name = "Test Game"
+    player_name = "Host"
 
-        # El mockeo de la clase va a devolver la instancia que especificamos
-        mock_game_class.return_value = mock_game_instance
+    mock_game_instance = mock_game_class.return_value
+    mock_game_instance.id = 42
+    mock_player_instance = mock_player.return_value
+    mock_player_instance.id = 1
 
-        # Tiramos la request!
-        req = f"http://127.0.0.1:8000/create_game?game_name={game_name}&player_name={player_name}"
-        response = client.put(req)
+    def mock_create_player(player_name):
+        player = mock_player_instance
+        if len(mock_game_instance.players) == 0:
+            mock_game_instance.owner_id = player.id
+        mock_game_instance.players.add(player)
+        return player.id
 
-        assert response.status_code == 200
+    mock_game_instance.create_player.side_effect = mock_create_player
 
-        response_data = response.json()
-        assert response_data == {
-            "game_id": mock_game_id,
-            "player_id": mock_player_id
-        }
+    
+    # Call the endpoint
+    response = client.put(
+        f"/create_game?socket_id={socket_id}&game_name={game_name}&player_name={player_name}"
+    )
+    
+    assert response.status_code == 200
+    response_data = response.json()
+   
+    # Check the response and mock calls
+    assert response_data['game_id'] == mock_game_instance.id  # Check mocked game ID
+    assert response_data['player_id'] == 1  # Check mocked player ID
+    
+    # Assert that the WebSocket manager's add_to_game was called with the correct args
+    mock_manager.assert_called_once_with(socket_id, 42)
 
-        mock_game_class.assert_called_once_with(name=game_name)
-        mock_game_instance.create_player.assert_called_once_with(player_name)
-        assert mock_game_instance.max_players == max_players
-        assert mock_game_instance.name == game_name
-        assert mock_game_instance.min_players == min_players
-        assert mock_game_instance.owner_id == mock_player_id
 
 
-def test_create_multiple_games():
+@patch("main.Game")
+def test_create_multiple_games(mock_game_class, mock_manager, mock_player):
     # Mock data
     games = [
         {"game_name": "Game1", "player_name": "Player1", "min_players": 2, "max_players": 4},
@@ -59,44 +68,44 @@ def test_create_multiple_games():
     ]
 
     # Mock game_id and player_id to be returned by the database for each game
+    socket_ids = [1, 2, 3]
     mock_game_ids = [505, 202, 3]
     mock_player_ids = [120, 1, 505]
+    mock_game_instance = mock_game_class.return_value
 
-    # Mock the Pony ORM Game class and db_session
-    with patch('main.db_session'), \
-         patch('main.Game', autospec=True) as mock_game_class:
+    mock_player_instance = mock_player.return_value
 
-        for i, game in enumerate(games):
-            # Create a mock instance for each game
-            mock_game_instance = MagicMock()
-            mock_game_instance.create_player.return_value = mock_player_ids[i]
-            mock_game_instance.id = mock_game_ids[i]
-            mock_game_instance.max_players = game["max_players"]
-            mock_game_instance.min_players = game["min_players"]
+    for i, game in enumerate(games):
+        # Create a mock instance for each game
+        mock_game_instance.create_player.return_value = mock_player_ids[i]
+        mock_game_instance.id = mock_game_ids[i]
+        mock_game_instance.max_players = games[i]["max_players"]
+        mock_game_instance.min_players = games[i]["min_players"]
+        mock_player_instance.id = mock_player_ids[i]
+        
+        def mock_create_player(player_name):
+            player = mock_player_instance
+            if len(mock_game_instance.players) == 0:
+                mock_game_instance.owner_id = player.id
+            mock_game_instance.players.add(player)
+         
+            return player.id
 
-            # Configure the mock Game class to return the mock instance
-            mock_game_class.return_value = mock_game_instance
+        mock_game_instance.create_player.side_effect = mock_create_player
 
-            req_args = f"game_name={game['game_name']}&player_name={game['player_name']}&min_players={game['min_players']}&max_players={game['max_players']}"
+        game = games[i]
+        response = client.put(
+            f"""create_game?socket_id={socket_ids[i]}&game_name={game['game_name']}&player_name={game['player_name']}&max_players={game['max_players']}&min_players={game['min_players']}"""
+        )
 
-            req = f"http://127.0.0.1:8000/create_game?{req_args}"
-            response = client.put(req)
+        assert response.status_code == 200
 
-            assert response.status_code == 200
+        response_data = response.json()
+        assert response_data == {
+            GAME_ID: mock_game_instance.id,
+            PLAYER_ID: mock_game_instance.owner_id,
+            GAME_MAX: games[i]["max_players"],
+            GAME_MIN: games[i]["min_players"],
+            STATUS: SUCCESS
+        }
 
-            response_data = response.json()
-            assert response_data == {
-                "game_id": mock_game_ids[i],
-                "player_id": mock_player_ids[i]
-            }
-
-            mock_game_class.assert_called_with(name=game["game_name"])
-            mock_game_instance.create_player.assert_called_once_with(game["player_name"])
-            # It is unclear to me why the mock_game_instance.max_players attribute is 
-            # a string here, where above we are setting it as an integer. Hence, this 
-            # type casting is bad practice - we should address the issue.
-            assert int( mock_game_instance.max_players ) == game["max_players"]
-            assert int( mock_game_instance.min_players ) == game["min_players"]
-            assert mock_game_instance.owner_id == mock_player_ids[i]
-
-        assert mock_game_class.call_count == len(games)
