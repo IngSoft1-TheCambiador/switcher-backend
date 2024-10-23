@@ -546,7 +546,6 @@ async def start_game(game_id : int):
         return {"message" : f"Starting {game_id}",
                 STATUS: SUCCESS}
 
-
 @app.put("/claim_figure")
 async def claim_figure(game_id : int, 
                           player_id : int, 
@@ -629,7 +628,4 @@ async def claim_figure(game_id : int,
             "true_board" : game.board,
             STATUS: SUCCESS
         }
-
-
-
 

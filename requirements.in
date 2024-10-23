@@ -3,6 +3,14 @@ fastapi
 uvicorn
 pony
 fastapi[standard]
+httpx
 requests
 pytest
 pytest-asyncio
+pytest-cov
+pytest-cov
+pytest-mock
+numpy
+scikit-image
+pynvim
+pyright

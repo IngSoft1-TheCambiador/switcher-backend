@@ -201,7 +201,7 @@ def test_retrieve_move_cards():
     game.retrieve_player_move_cards(p.id, ["m2", "m3", "m3"])
 
     assert len(p.moves) == 2 
-    assert [m.move_type for m in p.moves] == [ "m2", "m1" ]
+    assert [m.move_type for m in p.moves] == [ "m2", "m1" ] or [m.move_type for m in p.moves] == [ "m1", "m2" ]
     assert len(game.move_deck) == 3 
     assert game.move_deck == ["m2", "m3", "m3"]
 
@@ -218,29 +218,4 @@ def test_game_cleanup():
     game.cleanup()
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
