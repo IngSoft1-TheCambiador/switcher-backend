@@ -7,3 +7,8 @@ httpx
 requests
 pytest
 pytest-asyncio
+pytest-cov
+pytest-cov
+pytest-mock
+numpy
+scikit-image
