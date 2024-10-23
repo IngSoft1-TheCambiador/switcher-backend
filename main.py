@@ -25,7 +25,7 @@ app.add_middleware(
 # ~~~~~~~~~~~~~~~~~~~~~~~ Wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-async def win_event(g : Game, p : Player):
+async def trigger_win_event(g : Game, p : Player):
 
     await manager.end_game(g.id, p.name)
     g.cleanup()
@@ -216,7 +216,7 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         if ((len(game.players) == 1) and game.is_init):
             # Handle: ganador por abandono
             for p in game.players:
-                await win_event(game, p)
+                await trigger_win_event(game, p)
 
         # Cancel game if owner leaves
         elif (not game.is_init and game.owner_id == player_id):
@@ -616,7 +616,7 @@ async def claim_figure(game_id : int,
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             winner_name = p.name
-            await win_event(game, p)
+            await trigger_win_event(game, p)
             return {"message" : f"Player {winner_name} won the game"}
 
         msg = f"""
