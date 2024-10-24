@@ -57,6 +57,8 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_player1.shapes = [MagicMock(shape_type="s1")]
         mock_player1.current_shapes = [MagicMock(shape_type="h1")]
         mock_player1.moves = [MagicMock(move_type="mov1")]
+        mock_player1.shapes[0].id = 10
+        mock_player1.current_shapes[0].id = 11
 
         mock_player2 = MagicMock()
         mock_player2.id = 2
@@ -65,6 +67,8 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_player2.shapes = [MagicMock(shape_type="s2")]
         mock_player2.current_shapes = [MagicMock(shape_type="h2")]
         mock_player2.moves = [MagicMock(move_type="mov2")]
+        mock_player2.shapes[0].id = 20
+        mock_player2.current_shapes[0].id = 21
 
         # Assign players to the game
         mock_game_instance.players = [mock_player1, mock_player2]
@@ -92,6 +96,14 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
             "player_f_hand": {
                 '1': ["h1"],
                 '2': ["h2"]
+            },
+            "player_f_hand_ids": {
+                '1': [11],
+                '2': [21]
+            },
+            "player_f_deck_ids": {
+                '1': [10],
+                '2': [20]
             },
             "player_m_cards": {
                 '1': ["mov1"],

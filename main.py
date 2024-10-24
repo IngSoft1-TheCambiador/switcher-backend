@@ -366,13 +366,15 @@ def game_state(socket_id : int):
             return {"message": f"Game {game_id} does not exist.",
                     STATUS : FAILURE }
 
-        f_cards, f_hands, m_cards, names, colors = {}, {}, {}, {}, {}
+        f_cards, f_hands, m_cards, names, colors, f_hand_ids, f_deck_ids = {}, {}, {}, {}, {}, {}, {}
         player_ids = []
         for p in game.players:
             player_ids.append(p.id)
-            f_cards[p.id] = sorted([p.shape_type for p in p.shapes ])
-            f_hands[p.id] = sorted([p.shape_type for p in p.current_shapes ])
-            m_cards[p.id] = sorted([p.move_type for p in p.moves ])
+            f_cards[p.id] = sorted([f.shape_type for f in p.shapes ])
+            f_hand_ids[p.id] = sorted([f.id for f in p.current_shapes])
+            f_deck_ids[p.id] = sorted([f.id for f in p.shapes])
+            f_hands[p.id] = sorted([f.shape_type for f in p.current_shapes ])
+            m_cards[p.id] = sorted([f.move_type for f in p.moves ])
             names[p.id] = p.name
             colors[p.id] = p.color
         
@@ -396,6 +398,8 @@ def game_state(socket_id : int):
             "player_colors": colors,
             "player_f_cards": f_cards,
             "player_f_hand": f_hands,
+            "player_f_hand_ids": f_hand_ids,
+            "player_f_deck_ids": f_deck_ids,
             "player_m_cards": m_cards,
             "owner_id" : game.owner_id,
             "max_players" : game.max_players,
