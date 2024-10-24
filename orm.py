@@ -316,7 +316,9 @@ class Game(db.Entity):
         if m_cards_to_deal > 0:
             dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
             [player.moves.add( Move(move_type=card, owner=player) ) for card in dealt_move_cards]
-            
+        
+        if any ([f.is_blocked for f in player.current_shapes]):
+            return
 
         if f_cards_to_deal > 0: 
             shapes = [s for s in player.shapes]

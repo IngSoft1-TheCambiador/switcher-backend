@@ -109,6 +109,32 @@ def test_complete_player_hands():
     assert len(p.shapes) == 0
 
 
+@db_session
+def test_complete_player_hands_failure():
+
+
+    game = Game(name = "asdaosjd")
+
+    pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
+    game.initialize()
+
+
+    p = Player[pids[0]]
+
+    player_f_hand = [card for card in p.current_shapes]
+
+    # Remove two cards from the movement cards of the player
+    player_f_hand[0].delete()
+    player_f_hand[1].delete()
+
+    assert len(p.current_shapes) == 1
+
+    player_f_hand[2].is_blocked = True
+
+    game.complete_player_hands(p)
+    
+    assert len(p.current_shapes) == 1
+
 
 @db_session
 def test_initialize_game(n_players = 2):
