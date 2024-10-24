@@ -99,7 +99,6 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
                     STATUS: FAILURE}
 
     with db_session:
-        page = page # ¿?
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
         all_games = Game.select().order_by(Game.id)
@@ -409,6 +408,7 @@ def game_state(socket_id : int):
             "old_board" : game.old_board,
             "move_deck" : game.move_deck,
             "highlighted_squares" : ''.join(str(x) for x in highlighted_squares),
+            "forbidden_color": game.forbidden_color,
             STATUS : SUCCESS
             })
             
@@ -578,10 +578,13 @@ async def block_figure(game_id: int, player_id: int,
         game = Game.get(id=game_id)
         p = Player.get(id = player_id)
 
-        print("\nAttempting if")
         if game is None or p is None:
-            print("WITHIN")
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
+                    STATUS: FAILURE}
+        
+        if game.get_block_color(x, y) == game.forbidden_color:
+            return {
+                "message": f"({x}, {y}) has the forbidden color {game.forbidden_color}",
                     STATUS: FAILURE}
 
         shape = Shape.get(id=fig_id)
@@ -597,6 +600,7 @@ async def block_figure(game_id: int, player_id: int,
        
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
+        game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
         shape.is_blocked = True
 
@@ -649,6 +653,10 @@ async def claim_figure(game_id : int,
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
                     STATUS: FAILURE}
 
+        if game.get_block_color(x, y) == game.forbidden_color:
+            return {
+                "message": f"({x}, {y}) has the forbidden color {game.forbidden_color}",
+                    STATUS: FAILURE}
         shape = next(
             (x for x in p.current_shapes if x.shape_type == fig ), 
             None)
@@ -664,6 +672,7 @@ async def claim_figure(game_id : int,
        
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
+        game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
         shape.delete()
 

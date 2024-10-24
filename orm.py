@@ -1,10 +1,12 @@
 from random import shuffle, sample
 from pony.orm import Database, PrimaryKey, Required, Set, Optional, StrArray
 from pony.orm import db_session, commit
+from enum import StrEnum
 
 db = Database()
 
 DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
+Color = StrEnum("Color", ["r", "b", "g", "y", "NULL_COLOR"])
 
 class Shape(db.Entity):
     """
@@ -72,7 +74,7 @@ class Player(db.Entity):
         The ID of the player who follows this player in the turn order.
     """
     id = PrimaryKey(int, auto=True)
-    color = Optional(str)
+    color = Optional(str, default=Color.NULL_COLOR)
     name = Required(str)
     game = Required("Game", reverse="players")
     moves = Set("Move", reverse="owner")
@@ -177,6 +179,7 @@ class Game(db.Entity):
     board = Required(str, default=DEFAULT_BOARD)
     old_board = Optional(str, default=DEFAULT_BOARD)
     move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
+    forbidden_color = Optional(str, default=Color.NULL_COLOR)
 
     @db_session
     def create_player(self, player_name):
@@ -209,7 +212,7 @@ class Game(db.Entity):
     
     @db_session
     def set_turns_and_colors(self):
-        colors = ["r", "g", "b", "y"]
+        colors = [Color.r, Color.b, Color.y, Color.g]
         players = [p for p in self.players]
         shuffle(players)
         shuffle(colors)

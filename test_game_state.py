@@ -47,6 +47,7 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
         mock_game_instance.move_deck = ["mov1", "mov2"]
+        mock_game_instance.forbidden_color = "RED"
         mock_game.get.return_value = mock_game_instance
 
         # Mock the Player instances and their attributes
@@ -117,6 +118,7 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
             "old_board": DEFAULT_BOARD,
             "move_deck": ["mov1", "mov2"],
             "highlighted_squares": "000000000000000000000000000000000000",
+            "forbidden_color": "RED",
             STATUS: SUCCESS
         }
 

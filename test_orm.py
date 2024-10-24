@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session
-from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD  # Import your database object and entity classes
+from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD, Color # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -27,6 +27,7 @@ def test_create_game():
     game = Game(name="Test Game")
     assert game.name == "Test Game"
     assert game.is_init is False
+    assert game.forbidden_color == Color.NULL_COLOR
     assert len(game.players) == 0
 
 @db_session
@@ -49,7 +50,7 @@ def test_turn_and_color_setting():
     pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
 
     # Assert no player has a color set
-    assert all( [Player[id].color == "" for id in pids] )
+    assert all( [Player[id].color == Color.NULL_COLOR for id in pids] )
     # Assert no player has cards
     game.set_turns_and_colors()
     assert not any( [Player[id].color == "" for id in pids] )

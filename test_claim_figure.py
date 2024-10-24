@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app, manager
-from orm import DEFAULT_BOARD
+from orm import DEFAULT_BOARD, Color
 from constants import STATUS, SUCCESS, FAILURE
 
 @pytest.fixture
@@ -40,6 +40,7 @@ def mock_shape(mocker):
 def mock_move(mocker):
     mock_shape = mocker.patch("orm.Move")
     return mock_shape
+
 
 @pytest.fixture 
 def mock_bool_board(mocker):
@@ -202,3 +203,35 @@ def test_claim_figure_not_at_position(client, mock_game, mock_player,
             "message" : f"Figure {fig} exists in board, but not at ({x}, {y})",
             STATUS: FAILURE
         }
+
+
+def test_forbidden_color_failure(client, mock_game, mock_player,
+                                 mock_shape):
+    mock_game_id = 1
+    mock_player_id = 10
+    fig = "h1"
+    x, y = 0, 0
+
+    with patch('main.db_session'):
+        mock_shape_instance = mock_shape.return_value 
+        mock_shape_instance.shape_type = fig
+        # Setup mock player and game
+        mock_player_instance = mock_player.return_value
+        mock_player_instance.current_shapes = [mock_shape_instance]
+        mock_game_instance = mock_game.return_value
+        mock_game_instance.forbidden_color = Color.y
+        mock_game_instance.board = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        mock_game_instance.get_block_color.return_value = "y"
+
+        mock_game.get.return_value = mock_game_instance
+        mock_player.get.return_value = mock_player_instance
+
+
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=asdasdasd&x={x}&y={y}")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "message": f"({x}, {y}) has the forbidden color {mock_game_instance.forbidden_color}",
+            STATUS: FAILURE
+        }
+        

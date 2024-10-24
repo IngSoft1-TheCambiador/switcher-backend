@@ -1,5 +1,6 @@
 # Constants
 
+
 PLAYER_ID = "player_id"
 GAME_ID = "game_id"
 PAGE_INTERVAL = 8 # Number of games listed per page
@@ -13,3 +14,5 @@ GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or 
 SUCCESS = 0
 FAILURE = -1
 STATUS = "response_status"
+
+
