@@ -24,3 +24,13 @@ def make_partial_moves_effective(game: Game, used_movs: str, player_id: int):
     used_movs = used_movs.split(",")
     game.retrieve_player_move_cards(player_id, used_movs)
     game.commit_board()
+
+
+def search_is_valid(text, min, max):
+    return (
+        (text == "" or text.isalnum()) and
+        len(text)<=15 and
+        min in ["", "2", "3", "4"] and
+        max in ["", "2", "3", "4"] and
+        (min=="" or max=="" or int(min)<=int(max))
+    )

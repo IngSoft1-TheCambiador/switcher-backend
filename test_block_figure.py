@@ -76,6 +76,8 @@ def test_block_figure_success(client, mock_game, mock_player, mock_manager,
         mock_game_instance = mock_game.return_value
         mock_game.get.return_value = mock_game_instance
         mock_game_instance.board = DEFAULT_BOARD
+        mock_game_instance.get_block_color.return_value = Color.r 
+        mock_game_instance.forbidden_color = Color.y
 
         print(mock_game_instance.board)
 
@@ -96,6 +98,7 @@ def test_block_figure_success(client, mock_game, mock_player, mock_manager,
         }
         assert mock_game_instance.retrieve_player_move_cards.called
         assert mock_shape_instance.is_blocked is True
+        assert mock_game_instance.forbidden_color == Color.r
 
 
 def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):

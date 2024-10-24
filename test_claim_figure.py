@@ -72,6 +72,9 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
         mock_game_instance.board = DEFAULT_BOARD
+        mock_game_instance.get_block_color.return_value = Color.r
+        mock_game_instance.forbidden_color = Color.y
+
 
         # Create separate instances for mock_bool_board
         mock_bool_board_instance = mock_bool_board.return_value
@@ -89,6 +92,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
             STATUS: SUCCESS
         }
         assert mock_game_instance.retrieve_player_move_cards.called
+        assert mock_game_instance.forbidden_color == Color.r
 
 
 def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):

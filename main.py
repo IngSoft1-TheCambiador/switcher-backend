@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS
 from constants import SUCCESS, FAILURE
-from wrappers import is_valid_figure, make_partial_moves_effective
+from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
 
 app = FastAPI()
 
@@ -64,14 +64,6 @@ def list_games(page : int =1):
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
 
-def valid_search(text, min, max):
-    return (
-        (text == "" or text.isalnum()) and
-        len(text)<=15 and
-        min in ["", "2", "3", "4"] and
-        max in ["", "2", "3", "4"] and
-        (min=="" or max=="" or int(min)<=int(max))
-    )
 
 @app.get("/search_games")
 def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
@@ -94,7 +86,7 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
         Maximum number of players.
     """
 
-    if not valid_search(text, min, max):
+    if not search_is_valid(text, min, max):
         return {"error": "Invalid search",
                     STATUS: FAILURE}
 
