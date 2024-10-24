@@ -1,11 +1,12 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
 from pony.orm import db_session
-from orm import Game, Player
+from orm import Game, Player, Shape
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS
 from constants import SUCCESS, FAILURE
+from wrappers import is_valid_figure, make_partial_moves_effective
 
 app = FastAPI()
 
@@ -22,17 +23,10 @@ app.add_middleware(
 )
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~ Wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 async def trigger_win_event(g : Game, p : Player):
 
     await manager.end_game(g.id, p.name)
     g.cleanup()
-
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~ Endpoints ~~~~~~~~~~~~~~~~~~~~~~~~
 
 @app.get("/")
 async def root():
@@ -546,6 +540,70 @@ async def start_game(game_id : int):
         return {"message" : f"Starting {game_id}",
                 STATUS: SUCCESS}
 
+
+@app.put("/block_figure") 
+async def block_figure(game_id: int, player_id: int,
+                       fig_id: int, used_movs : str,
+                       x: int, y : int):
+    """
+
+    When a player attempts to block a rival's figure card, a request to this
+    endpoint is sent. The endpoint checks if the chosen position of the board
+    actually contains the specified figure. If it does, it blocks the figure
+    card and commits the board.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game.
+    player_id : int 
+        ID of the player who wants to block a rival's fig card.
+    fig_id : int 
+        The ID of the figure card that the player attempts to block.
+    used_movs : str 
+        A string of the form `m₁,m₂,…,mₙ` with mᵢ being the 
+        ith movement card used by the current player.
+    x : int 
+        x-coord of the board position sent by player.
+    y : int 
+        y-coord of the board position sent by player.
+    """
+
+    with db_session:
+
+        game = Game.get(id=game_id)
+        p = Player.get(id = player_id)
+
+        print("\nAttempting if")
+        if game is None or p is None:
+            print("WITHIN")
+            return {"message": f"Game {game_id} or p {player_id} do not exist.",
+                    STATUS: FAILURE}
+
+        shape = Shape.get(id=fig_id)
+
+        if shape is None:
+            return {"message": f"Figure card {fig_id} does not exist",
+                    STATUS: FAILURE}
+
+        is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
+
+        if is_valid_response[STATUS] == FAILURE:
+            return is_valid_response
+       
+        # If the code reaches this point, it is because: (a) the player has 
+        # the figure card, and (b) the figure exists at pos (x, y).
+        make_partial_moves_effective(game, used_movs, player_id)
+        shape.is_blocked = True
+
+        return {
+            "true_board" : game.board,
+            STATUS: SUCCESS
+        }
+
+        
+
+
 @app.put("/claim_figure")
 async def claim_figure(game_id : int, 
                           player_id : int, 
@@ -568,7 +626,7 @@ async def claim_figure(game_id : int,
         ID of the game.
     player_id : int 
         ID of the player.
-    fig : int 
+    fig : str 
         Description of the figure card claimed.
     used_movs : str 
         A string of the form `m₁,m₂,…,mₙ` with mᵢ being the 
@@ -595,29 +653,19 @@ async def claim_figure(game_id : int,
             return {"message": f"p {player_id} does not have the {fig} card.",
                     STATUS: FAILURE}
 
+        is_valid_response = is_valid_figure(game.board, fig, x, y)
+
+        if is_valid_response[STATUS] == FAILURE:
+            return is_valid_response
        
-        λ = shapes_on_board(game.board)
-        λ = [b for b in λ if b.shape_code == fig]
-
-        if len(λ) == 0:
-            return {"message": f"The figure {fig} is not in the current board.",
-                    STATUS: FAILURE}
-
-        if all( [ β.board[x][y] == 0 for β in λ] ):
-            msg = f"""Figure {fig} exists in board, but not at ({x}, {y})"""
-            return {"message": msg, STATUS: FAILURE}
-
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
+        make_partial_moves_effective(game, used_movs, player_id)
         shape.delete()
-        used_movs = used_movs.split(",")
-        game.retrieve_player_move_cards(player_id, used_movs)
-        game.commit_board()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
-            winner_name = p.name
             await trigger_win_event(game, p)
-            return {"message" : f"Player {winner_name} won the game"}
+            return {"message" : f"Player {p.name} won the game"}
 
         msg = f"""
             Figure {fig} was claimed by player {p.id}. Partial moves were permanently applied.

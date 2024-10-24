@@ -33,7 +33,7 @@ def mock_shapes_on_board(mocker):
 
 @pytest.fixture 
 def mock_shape(mocker):
-    mock_shape = mocker.patch("orm.Shape")
+    mock_shape = mocker.patch("main.Shape")
     return mock_shape
 
 @pytest.fixture 
@@ -46,17 +46,22 @@ def mock_bool_board(mocker):
     mock_bool_board = mocker.patch("board_shapes.BooleanBoard")
     return mock_bool_board
 
-def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
+def test_block_figure_success(client, mock_game, mock_player, mock_manager,
                               mock_shapes_on_board, mock_shape, mock_move,
                               mock_bool_board):
     mock_game_id = 1
     mock_player_id = 10
     x, y = 0, 0
+    fig_id = 666
     fig = "h1"
 
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
+        mock_shape_instance.id = fig_id
         mock_shape_instance.shape_type = fig
+        mock_shape_instance.is_blocked = False
+        mock_shape.get.return_value = mock_shape_instance
+        print(mock_shape_instance.shape_type)
 
         mock_player_instance = mock_player.return_value
         mock_player_instance.shapes = []
@@ -65,12 +70,14 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         movs = [mock_move.return_value]
         movs[0].move_type = "mov1"
         mock_player_instance.moves = movs
+        mock_player.get.return_value = mock_player_instance
 
         # Setup mock game
         mock_game_instance = mock_game.return_value
         mock_game.get.return_value = mock_game_instance
-        mock_player.get.return_value = mock_player_instance
         mock_game_instance.board = DEFAULT_BOARD
+
+        print(mock_game_instance.board)
 
         # Create separate instances for mock_bool_board
         mock_bool_board_instance = mock_bool_board.return_value
@@ -80,7 +87,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_shapes_on_board.return_value = [mock_bool_board_instance]
 
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=mov1,mov2&x={x}&y={y}")
+        response = client.put(f"/block_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={fig_id}&used_movs=mov1,mov2&x={x}&y={y}")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -88,6 +95,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
             STATUS: SUCCESS
         }
         assert mock_game_instance.retrieve_player_move_cards.called
+        assert mock_shape_instance.is_blocked is True
 
 
 def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):
