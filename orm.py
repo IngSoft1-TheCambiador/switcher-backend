@@ -2,6 +2,7 @@ from random import shuffle, sample
 from pony.orm import Database, PrimaryKey, Required, Set, Optional, StrArray
 from pony.orm import db_session, commit
 from enum import StrEnum
+from datetime import datetime
 
 db = Database()
 
@@ -81,6 +82,7 @@ class Player(db.Entity):
     shapes = Set(Shape, reverse="owner")
     current_shapes = Set(Shape, reverse="owner_hand") 
     next = Required(int, default=0) 
+    messages = Set("Message", reverse="player")
 
     @db_session
     def add_move(self, move):
@@ -180,6 +182,7 @@ class Game(db.Entity):
     old_board = Optional(str, default=DEFAULT_BOARD)
     move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
     forbidden_color = Optional(str, default=Color.NULL_COLOR)
+    messages = Set("Message", reverse="game")
 
     @db_session
     def create_player(self, player_name):
@@ -470,6 +473,62 @@ class Game(db.Entity):
         # Call Pony's delete for the Game instance
         self.delete()
         commit()
+
+
+class Message(db.Entity):
+    """
+    This class represents chat messages in a game.
+
+    Attributes
+    ----------
+    id : int
+        The ID of the message.
+    content : str
+        The content of the message.
+    timestamp : datetime
+        The time the message was sent.
+    game : Game
+        The game to which the message belongs.
+    player : Player
+        The player who sent the message.
+    """
+    id = PrimaryKey(int, auto=True)
+    content = Required(str)
+    timestamp = Required(datetime, default=datetime.now())
+    game = Required(Game, reverse='messages')
+    player = Required(Player, reverse='messages')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
