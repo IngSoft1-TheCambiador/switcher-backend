@@ -362,12 +362,18 @@ def game_state(socket_id : int):
         for p in game.players:
             player_ids.append(p.id)
             f_cards[p.id] = sorted([f.shape_type for f in p.shapes ])
-            f_hand_ids[p.id] = sorted([f.id for f in p.current_shapes])
             f_deck_ids[p.id] = sorted([f.id for f in p.shapes])
-            f_hands[p.id] = sorted([f.shape_type for f in p.current_shapes ])
             m_cards[p.id] = sorted([f.move_type for f in p.moves ])
             names[p.id] = p.name
             colors[p.id] = p.color
+
+            # Get f_hand_ids and f_hands and sort them by f_hand_ids
+            f_hand_ids[p.id] = [f.id for f in p.current_shapes]
+            f_hands[p.id] = [f.shape_type for f in p.current_shapes ]
+            if f_hand_ids[p.id] != []:
+                f_hand_aux = sorted(zip(f_hand_ids[p.id], f_hands[p.id]))
+                f_hand_ids[p.id], f_hands[p.id] = list(map(list, zip(*f_hand_aux)))
+
         
         ingame_shapes = []
         
@@ -607,7 +613,7 @@ async def block_figure(game_id: int, player_id: int,
 @app.put("/claim_figure")
 async def claim_figure(game_id : int, 
                           player_id : int, 
-                          fig : str, 
+                          fig_id : int, 
                           used_movs : str,
                           x : int, y: int
                           ):
@@ -626,8 +632,8 @@ async def claim_figure(game_id : int,
         ID of the game.
     player_id : int 
         ID of the player.
-    fig : str 
-        Description of the figure card claimed.
+    fig_id : int 
+        The ID of the figure card that the player attempts to claim.
     used_movs : str 
         A string of the form `m₁,m₂,…,mₙ` with mᵢ being the 
         ith movement card used by the current player.
@@ -649,32 +655,35 @@ async def claim_figure(game_id : int,
             return {
                 "message": f"({x}, {y}) has the forbidden color {game.forbidden_color}",
                     STATUS: FAILURE}
-        shape = next(
-            (x for x in p.current_shapes if x.shape_type == fig ), 
-            None)
+        
+        shape = Shape.get(id=fig_id)
 
         if shape is None:
-            return {"message": f"p {player_id} does not have the {fig} card.",
+            return {"message": f"Figure card {fig_id} does not exist",
+                    STATUS: FAILURE}
+        
+        if shape.owner_hand.id != player_id:
+            return {"message": f"p {player_id} does not have the {shape.shape_type} card.",
                     STATUS: FAILURE}
 
-        is_valid_response = is_valid_figure(game.board, fig, x, y)
+        is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
         if is_valid_response[STATUS] == FAILURE:
             return is_valid_response
-       
+
         # If the code reaches this point, it is because: (a) the player has 
         # the figure card, and (b) the figure exists at pos (x, y).
         game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
-        shape.delete()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             await trigger_win_event(game, p)
             return {"message" : f"Player {p.name} won the game"}
 
         msg = f"""
-            Figure {fig} was claimed by player {p.id}. Partial moves were permanently applied.
+            Figure {shape.shape_type} was claimed by player {p.id}. Partial moves were permanently applied.
             """
+        shape.delete()
         await manager.broadcast_in_game(game_id, msg)
 
         return {
