@@ -511,24 +511,5 @@ class Message(db.Entity):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)
