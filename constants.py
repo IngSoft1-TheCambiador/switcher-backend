@@ -8,6 +8,7 @@ GAME_NAME = "game_name"
 GAME_MIN = "min_players"
 GAME_MAX = "max_players"
 GAMES_LIST = "games_list"
+TURN_DURATION = 5
 # Error details
 GENERIC_SERVER_ERROR = '''The server received data with an unexpected format or failed to respond due to unknown reasons'''
 

@@ -1,16 +1,37 @@
+import threading
+import time
+import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from connections import ConnectionManager
+from connections import ConnectionManager, get_time
 from pony.orm import db_session
 from orm import Game, Player, Shape
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS
-from constants import SUCCESS, FAILURE
+from constants import SUCCESS, FAILURE, TURN_DURATION
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
 
+class Timer(threading.Thread):
+    def __init__(self, game_id : int):
+        threading.Thread.__init__(self)
+        self.current_time = TURN_DURATION
+        self.game_id = game_id
+        self.is_running = True
+                
+    def run(self):
+        while self.is_running:
+            if self.current_time > 0:
+                time.sleep(1)
+            else:
+                finish_turn(self.game_id)
+                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
+            self.current_time = (self.current_time - 1) % (TURN_DURATION + 1)     
+                
 app = FastAPI()
 
 manager = ConnectionManager()
+
+timers : dict[int, Timer] = {}
 
 origins = ["*"]
 socket_id  : int
@@ -22,10 +43,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def finish_turn(game_id):
+    with db_session:
+       # This fails if there is no game with game_id as id
+
+        game = Game.get(id=game_id)
+        player = Player.get(id = game.current_player_id)
+
+        if game is None or player is None:
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS : FAILURE}
+        if not game.is_init:
+            return { "message": f"Game {game_id} has not yet begun.",
+                    STATUS : FAILURE}
+            
+        game.current_player_id = player.next
+        game.complete_player_hands(player)
+        return 1
 
 async def trigger_win_event(g : Game, p : Player):
-
     await manager.end_game(g.id, p.name)
+    timers[g.id].is_running = False
+    timers[g.id].join()
+    del timers[g.id]
     g.cleanup()
 
 @app.get("/")
@@ -430,34 +470,16 @@ async def skip_turn(game_id : int, player_id : int):
     player_id : int
         ID of the player.
     """
-    with db_session:
-       # This fails if there is no game with game_id as id
-
-        game = Game.get(id=game_id)
-        player = Player.get(id = player_id)
-
-        if game is None or player is None:
-            return {"message": f"Game {game_id} or player {player_id} do not exist.",
-                    STATUS : FAILURE}
-        if not game.is_init:
-            return { "message": f"Game {game_id} has not yet begun.",
-                    STATUS : FAILURE}
-        if player not in game.players:
-            return { "message": f"Game {game_id} has no player with id {player_id}.",
-                    STATUS : FAILURE}
-        if game.current_player_id != player_id:
-            return { "message": f"It is not the turn of player {player_id}.",
-                    STATUS: FAILURE }
-
-
-        game.current_player_id = player.next
-        game.complete_player_hands(player)
+    ans = finish_turn(game_id)
+    if ans == 1:
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
         return {
             "message" : f"Player {player_id} skipped in game {game_id}",
             STATUS : SUCCESS
         }
+    else:
+        return ans
     
 
 
@@ -539,6 +561,8 @@ async def start_game(game_id : int):
         game = Game.get(id=game_id)
         game.initialize()
         await manager.broadcast_in_game(game_id, "INITIALIZED")
+        timers[game_id] = Timer(game_id)
+        timers[game_id].start()
         return {"message" : f"Starting {game_id}",
                 STATUS: SUCCESS}
 
