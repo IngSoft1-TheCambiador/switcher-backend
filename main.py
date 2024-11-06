@@ -1,10 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
 from pony.orm import db_session
-from orm import Game, Player, Shape
+from orm import Game, Player, Shape, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
-from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
 from constants import SUCCESS, FAILURE
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
 
@@ -690,4 +690,62 @@ async def claim_figure(game_id : int,
             "true_board" : game.board,
             STATUS: SUCCESS
         }
+
+
+@app.post("/send_message")
+async def send_message(game_id : int, sender_id : int, txt : str):
+    """
+
+    Creates a Message object in the database and broadcasts the message
+    via weboscket.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game where the message is sent.
+    sender_id : int 
+        ID of the player who sent the message. Set to -1 to specify that this
+        message was sent by the system - i.e. it's a log message.
+    txt : str 
+        The message to be sent
+    """
+    with db_session:
+
+        if len(txt) > MAX_MESSAGE_LENGTH:
+            return
+
+        game = Game.get(id=game_id)
+        p = Player.get(id=sender_id)
+
+        if game is None or p is None:
+            return {"message": f"Game {game_id} or p {sender_id} do not exist.",
+                    STATUS: FAILURE}
+
+        message = Message(
+            content = txt,
+            game = game,
+            player = p
+        )
+
+        broadcast_messasge = f'''
+            "message": "{txt}",
+            "sender_id": "{sender_id}",
+            "sender_name": "{p.name}",
+            "time": "{message.timestamp}"
+        '''
+
+
+        await manager.broadcast_in_game(game_id, broadcast_messasge)
+        return {
+            'message': txt,
+            'sender_id': sender_id,
+            'sender_name': p.name,
+            'time': message.timestamp,
+            STATUS: SUCCESS
+        }
+
+
+
+
+
 
