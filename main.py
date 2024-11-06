@@ -23,12 +23,19 @@ class Timer(threading.Thread):
             if self.current_time > 0:
                 time.sleep(1)
             else:
-                finish_turn(self.game_id)
+                with db_session:
+                    game = Game.get(id=self.game_id)
+                    player = Player.get(id = game.current_player_id)            
+                    game.current_player_id = player.next
+                    game.complete_player_hands(player)
                 asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
+                
             self.current_time = (self.current_time - 1) % (TURN_DURATION + 1) 
+            
     def stop(self):
         self.is_running = False
         self.join()   
+        
                 
 app = FastAPI()
 
@@ -45,24 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-def finish_turn(game_id):
-    with db_session:
-       # This fails if there is no game with game_id as id
-
-        game = Game.get(id=game_id)
-        player = Player.get(id = game.current_player_id)
-
-        if game is None or player is None:
-            return {"message": f"Game {game_id} does not exist.",
-                    STATUS : FAILURE}
-        if not game.is_init:
-            return { "message": f"Game {game_id} has not yet begun.",
-                    STATUS : FAILURE}
-            
-        game.current_player_id = player.next
-        game.complete_player_hands(player)
-        return 1
 
 async def trigger_win_event(g : Game, p : Player):
     await manager.end_game(g.id, p.name)
@@ -475,8 +464,27 @@ async def skip_turn(game_id : int, player_id : int):
     player_id : int
         ID of the player.
     """
-    ans = finish_turn(game_id)
-    if ans == 1:
+    with db_session:
+       # This fails if there is no game with game_id as id
+
+        game = Game.get(id=game_id)
+        player = Player.get(id = player_id)
+
+        if game is None or player is None:
+            return {"message": f"Game {game_id} or player {player_id} do not exist.",
+                    STATUS : FAILURE}
+        if not game.is_init:
+            return { "message": f"Game {game_id} has not yet begun.",
+                    STATUS : FAILURE}
+        if player not in game.players:
+            return { "message": f"Game {game_id} has no player with id {player_id}.",
+                    STATUS : FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
+            
+        game.current_player_id = player.next
+        game.complete_player_hands(player)
         timers[game_id].stop()
         timers[game_id] = Timer(game_id)
         timers[game_id].start()
@@ -486,9 +494,6 @@ async def skip_turn(game_id : int, player_id : int):
             "message" : f"Player {player_id} skipped in game {game_id}",
             STATUS : SUCCESS
         }
-    else:
-        return ans
-    
 
 
 @app.post("/partial_move")
@@ -519,6 +524,9 @@ async def partial_move(game_id : int, player_id : int, mov : int, a : int, b : i
         if player is None:
             return {"message": f"Game {game_id} does not exist.",
                     STATUS : FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
         game.exchange_blocks(a, b, x, y)
         await manager.broadcast_in_game(game_id, "PARTIAL_MOVE {} {}".format(player_id, mov))
         return {
@@ -611,6 +619,9 @@ async def block_figure(game_id: int, player_id: int,
         if game is None or p is None:
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
                     STATUS: FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
         
         if game.get_block_color(x, y) == game.forbidden_color:
             return {
@@ -682,6 +693,9 @@ async def claim_figure(game_id : int,
         if game is None or p is None:
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
                     STATUS: FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
 
         if game.get_block_color(x, y) == game.forbidden_color:
             return {
@@ -722,4 +736,3 @@ async def claim_figure(game_id : int,
             "true_board" : game.board,
             STATUS: SUCCESS
         }
-
