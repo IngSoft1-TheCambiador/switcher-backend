@@ -25,7 +25,10 @@ class Timer(threading.Thread):
             else:
                 finish_turn(self.game_id)
                 asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
-            self.current_time = (self.current_time - 1) % (TURN_DURATION + 1)     
+            self.current_time = (self.current_time - 1) % (TURN_DURATION + 1) 
+    def stop(self):
+        self.is_running = False
+        self.join()   
                 
 app = FastAPI()
 
@@ -63,8 +66,7 @@ def finish_turn(game_id):
 
 async def trigger_win_event(g : Game, p : Player):
     await manager.end_game(g.id, p.name)
-    timers[g.id].is_running = False
-    timers[g.id].join()
+    timers[g.id].stop()
     del timers[g.id]
     g.cleanup()
 
@@ -230,6 +232,9 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         
             if game.current_player_id == p.id:
                 game.current_player_id = p.next
+                timers[game_id].stop()
+                timers[game_id] = Timer(game_id)
+                timers[game_id].start()
         
         game.players.remove(p)
         p.delete()
@@ -472,6 +477,9 @@ async def skip_turn(game_id : int, player_id : int):
     """
     ans = finish_turn(game_id)
     if ans == 1:
+        timers[game_id].stop()
+        timers[game_id] = Timer(game_id)
+        timers[game_id].start()
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
         return {
