@@ -736,3 +736,7 @@ async def claim_figure(game_id : int,
             "true_board" : game.board,
             STATUS: SUCCESS
         }
+       
+@app.get("/get_current_time") 
+async def get_current_time(game_id : int):
+    return {"current_time" : timers[game_id].current_time}
