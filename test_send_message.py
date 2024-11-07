@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app, manager  
 from constants import STATUS, SUCCESS
+from datetime import datetime
 
 
 @pytest.fixture
@@ -51,7 +52,7 @@ def test_send_message(client, mock_game, mock_player, mock_message, mock_manager
 
 
         mock_message_instance = mock_message.return_value
-        mock_message_instance.timestamp = "00:00:00"
+        mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
         
         response =client.post(f"/send_message?game_id={mock_game_instance.id}&sender_id={player_a.id}&txt={message}")
 
@@ -60,7 +61,7 @@ def test_send_message(client, mock_game, mock_player, mock_message, mock_manager
             "message": message,
             "sender_id": player_a.id,
             "sender_name": player_a.name,
-            "time": "00:00:00",
+            "time": "00:00",
             STATUS: SUCCESS
         }
 

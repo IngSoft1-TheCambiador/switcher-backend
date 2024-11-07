@@ -7,6 +7,7 @@ from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
 from constants import SUCCESS, FAILURE
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
+import json
 
 app = FastAPI()
 
@@ -727,12 +728,12 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             player = p
         )
 
-        broadcast_messasge = f'''
-            "message": "{txt}",
-            "sender_id": "{sender_id}",
-            "sender_name": "{p.name}",
-            "time": "{message.timestamp}"
-        '''
+        broadcast_messasge = json.dumps({
+            "message": txt,
+            "sender_id": sender_id,
+            "sender_name": p.name,
+            "time": message.timestamp.strftime('%H:%M')
+        })
 
 
         await manager.broadcast_in_game(game_id, broadcast_messasge)
@@ -740,7 +741,7 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             'message': txt,
             'sender_id': sender_id,
             'sender_name': p.name,
-            'time': message.timestamp,
+            'time': message.timestamp.strftime('%H:%M'),
             STATUS: SUCCESS
         }
 
