@@ -55,8 +55,9 @@ app.add_middleware(
 
 async def trigger_win_event(g : Game, p : Player):
     await manager.end_game(g.id, p.name)
-    timers[g.id].stop()
-    del timers[g.id]
+    if g.id in timers.keys():
+        timers[g.id].stop()
+        del timers[g.id]
     g.cleanup()
 
 @app.get("/")
@@ -485,9 +486,10 @@ async def skip_turn(game_id : int, player_id : int):
             
         game.current_player_id = player.next
         game.complete_player_hands(player)
-        timers[game_id].stop()
-        timers[game_id] = Timer(game_id)
-        timers[game_id].start()
+        if game_id in timers.keys():
+            timers[game_id].stop()
+            timers[game_id] = Timer(game_id)
+            timers[game_id].start()
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
         return {
