@@ -497,6 +497,7 @@ class Message(db.Entity):
     timestamp = Required(datetime, default=datetime.now())
     game = Required(Game, reverse='messages')
     player = Required(Player, reverse='messages')
+    log = Required(bool, default=False)
 
 
 
