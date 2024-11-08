@@ -791,12 +791,6 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             'time': message.timestamp.strftime('%H:%M'),
             STATUS: SUCCESS
         }
-
-
-
-
-
-
        
 @app.get("/get_current_time") 
 async def get_current_time(game_id : int):
@@ -807,4 +801,8 @@ async def get_current_time(game_id : int):
             return {"current_time" : -1}
         
     return {"current_time" : timers[game_id].current_time}
+
+@app.put("/relink_to_game")
+async def relink_to_game(socket_id : int, game_id : int):
+    await manager.add_to_game(socket_id, game_id)
         

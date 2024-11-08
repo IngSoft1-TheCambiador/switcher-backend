@@ -98,7 +98,7 @@ class ConnectionManager:
         del self.sockets_by_id[socket_id]
         self.socket_to_game[socket_id] = None
         del self.socket_to_game[socket_id]
-
+        
     async def send_personal_message(self, socket_id : int, message : str) -> None:
         """ 
 
