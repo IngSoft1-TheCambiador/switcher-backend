@@ -494,7 +494,7 @@ class Message(db.Entity):
     """
     id = PrimaryKey(int, auto=True)
     content = Required(str)
-    timestamp = Required(datetime, default=datetime.now())
+    timestamp = Required(datetime)
     game = Required(Game, reverse='messages')
     player = Required(Player, reverse='messages')
 

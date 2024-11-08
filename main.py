@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
-from pony.orm import db_session
+from pony.orm import db_session, select
 from orm import Game, Player, Shape, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
@@ -8,6 +8,7 @@ from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GA
 from constants import SUCCESS, FAILURE
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
 import json
+from datetime import datetime
 
 app = FastAPI()
 
@@ -725,7 +726,8 @@ async def send_message(game_id : int, sender_id : int, txt : str):
         message = Message(
             content = txt,
             game = game,
-            player = p
+            player = p,
+            timestamp = datetime.now()
         )
 
         broadcast_messasge = json.dumps({
@@ -744,6 +746,50 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             'time': message.timestamp.strftime('%H:%M'),
             STATUS: SUCCESS
         }
+
+
+@app.get("/get_messages")
+async def get_messages(game_id : int):
+    """
+
+    Gets all messages in the database and returns them ordered by their 
+    timestamp.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game where the messages we want to retrieve were sent.
+    """
+    with db_session:
+
+
+        game = Game.get(id=game_id)
+
+        if game is None:
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS: FAILURE}
+
+        L = []
+        messages = select(m for m in Message).order_by(Message.timestamp)[:]
+
+        for msg in messages:
+            formatted_msg = json.dumps(
+                {
+                    "message": msg.txt,
+                    "sender_id": msg.player.id,
+                    "sender_name": msg.player.name,
+                    "time": msg.timestamp
+                }
+            )
+            L.append(formatted_msg)
+
+
+        return {
+            'message_list': L,
+            STATUS: SUCCESS
+        }
+
+
 
 
 
