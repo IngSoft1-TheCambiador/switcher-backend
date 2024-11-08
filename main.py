@@ -20,9 +20,8 @@ class Timer(threading.Thread):
                 
     def run(self):
         while self.is_running:
-            if self.current_time > 0:
-                time.sleep(1)
-            else:
+            time.sleep(1)
+            if self.current_time == 0:
                 with db_session:
                     game = Game.get(id=self.game_id)
                     player = Player.get(id = game.current_player_id)            
@@ -741,4 +740,10 @@ async def claim_figure(game_id : int,
        
 @app.get("/get_current_time") 
 async def get_current_time(game_id : int):
+    with db_session:
+        game = Game.get(id=game_id)
+        if not game or not game.is_init:
+            return {"current_time" : -1}
+        
     return {"current_time" : timers[game_id].current_time}
+        
