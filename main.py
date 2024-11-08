@@ -742,7 +742,8 @@ async def claim_figure(game_id : int,
 async def get_current_time(game_id : int):
     with db_session:
         game = Game.get(id=game_id)
-        if not game or not game.is_init:
+        print(f"INFO: {game}")
+        if game is None or not game.is_init:
             return {"current_time" : -1}
         
     return {"current_time" : timers[game_id].current_time}
