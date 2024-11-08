@@ -1,17 +1,49 @@
+import threading
+import time
+import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
-from pony.orm import db_session
+from pony.orm import db_session, select
+from connections import ConnectionManager, get_time
 from orm import Game, Player, Shape, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
-from constants import SUCCESS, FAILURE
+from constants import SUCCESS, FAILURE, TURN_DURATION
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
 import json
+from datetime import datetime
 
+class Timer(threading.Thread):
+    def __init__(self, game_id : int):
+        threading.Thread.__init__(self)
+        self.current_time = TURN_DURATION
+        self.game_id = game_id
+        self.is_running = True
+                
+    def run(self):
+        while self.is_running:
+            time.sleep(1)
+            if self.current_time == 0:
+                with db_session:
+                    game = Game.get(id=self.game_id)
+                    player = Player.get(id = game.current_player_id)            
+                    game.current_player_id = player.next
+                    game.complete_player_hands(player)
+                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
+                
+            self.current_time = (self.current_time - 1) % (TURN_DURATION + 1) 
+            
+    def stop(self):
+        self.is_running = False
+        self.join()   
+        
+                
 app = FastAPI()
 
 manager = ConnectionManager()
+
+timers : dict[int, Timer] = {}
 
 origins = ["*"]
 socket_id  : int
@@ -23,10 +55,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 async def trigger_win_event(g : Game, p : Player):
-
     await manager.end_game(g.id, p.name)
+    if g.id in timers.keys():
+        timers[g.id].stop()
+        del timers[g.id]
     g.cleanup()
 
 @app.get("/")
@@ -191,6 +224,9 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         
             if game.current_player_id == p.id:
                 game.current_player_id = p.next
+                timers[game_id].stop()
+                timers[game_id] = Timer(game_id)
+                timers[game_id].start()
 
            # Send log report
             message = Message(
@@ -463,10 +499,13 @@ async def skip_turn(game_id : int, player_id : int):
         if game.current_player_id != player_id:
             return { "message": f"It is not the turn of player {player_id}.",
                     STATUS: FAILURE }
-
-
+            
         game.current_player_id = player.next
         game.complete_player_hands(player)
+        if game_id in timers.keys():
+            timers[game_id].stop()
+            timers[game_id] = Timer(game_id)
+            timers[game_id].start()
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
 
        # Send log report
@@ -489,7 +528,6 @@ async def skip_turn(game_id : int, player_id : int):
             "message" : f"Player {player_id} skipped in game {game_id}",
             STATUS : SUCCESS
         }
-    
 
 
 @app.post("/partial_move")
@@ -520,6 +558,9 @@ async def partial_move(game_id : int, player_id : int, mov : int, a : int, b : i
         if player is None:
             return {"message": f"Game {game_id} does not exist.",
                     STATUS : FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
         game.exchange_blocks(a, b, x, y)
         await manager.broadcast_in_game(game_id, "PARTIAL_MOVE {} {}".format(player_id, mov))
         return {
@@ -570,6 +611,8 @@ async def start_game(game_id : int):
         game = Game.get(id=game_id)
         game.initialize()
         await manager.broadcast_in_game(game_id, "INITIALIZED")
+        timers[game_id] = Timer(game_id)
+        timers[game_id].start()
         return {"message" : f"Starting {game_id}",
                 STATUS: SUCCESS}
 
@@ -610,6 +653,9 @@ async def block_figure(game_id: int, player_id: int,
         if game is None or p is None:
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
                     STATUS: FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
         
         if game.get_block_color(x, y) == game.forbidden_color:
             return {
@@ -715,6 +761,9 @@ async def claim_figure(game_id : int,
         if game is None or p is None:
             return {"message": f"Game {game_id} or p {player_id} do not exist.",
                     STATUS: FAILURE}
+        if game.current_player_id != player_id:
+            return { "message": f"It is not the turn of player {player_id}.",
+                    STATUS: FAILURE }
 
         if game.get_block_color(x, y) == game.forbidden_color:
             return {
@@ -820,7 +869,8 @@ async def send_message(game_id : int, sender_id : int, txt : str):
         message = Message(
             content = txt,
             game = game,
-            player = p
+            player = p,
+            timestamp = datetime.now()
         )
 
         broadcast_messasge = "NEW CHAT MSG:" + json.dumps({
@@ -841,7 +891,56 @@ async def send_message(game_id : int, sender_id : int, txt : str):
         }
 
 
+@app.get("/get_messages")
+async def get_messages(game_id : int):
+    """
+
+    Gets all messages in the database and returns them ordered by their 
+    timestamp.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game where the messages we want to retrieve were sent.
+    """
+    with db_session:
 
 
+        game = Game.get(id=game_id)
+
+        if game is None:
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS: FAILURE}
+
+        L = []
+        messages = sorted(Message.select(), key=lambda message: message.timestamp)
+        print(messages)
+
+        for msg in messages:
+            formatted_msg = json.dumps(
+                {
+                    "message": msg.txt,
+                    "sender_id": msg.player.id,
+                    "sender_name": msg.player.name,
+                    "time": msg.timestamp.strftime('%H:%M')
+                }
+            )
+            L.append(formatted_msg)
 
 
+        return {
+            'message_list': L,
+            STATUS: SUCCESS
+        }
+      
+
+@app.get("/get_current_time") 
+async def get_current_time(game_id : int):
+    with db_session:
+        game = Game.get(id=game_id)
+        print(f"INFO: {game}")
+        if game is None or not game.is_init:
+            return {"current_time" : -1}
+        
+    return {"current_time" : timers[game_id].current_time}
+        

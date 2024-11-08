@@ -30,6 +30,7 @@ def test_partial_moves(client, mock_game, mock_player):
         mock_game_instance.id = mock_game_id
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
+        mock_game_instance.current_player_id = 1
         mock_game.get.return_value = mock_game_instance
 
         mock_player_instance = mock_player.return_value 
@@ -76,6 +77,7 @@ def test_undo_partial_moves(client, mock_game, mock_player):
         mock_game_instance.id = mock_game_id
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
+        mock_game_instance.current_player_id = 1
         mock_game.get.return_value = mock_game_instance
 
         mock_player_instance = mock_player.return_value 

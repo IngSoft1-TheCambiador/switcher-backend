@@ -33,7 +33,7 @@ def mock_shapes_on_board(mocker):
 
 @pytest.fixture 
 def mock_shape(mocker):
-    mock_shape = mocker.patch("orm.Shape")
+    mock_shape = mocker.patch("main.Shape")
     return mock_shape
 
 @pytest.fixture 
@@ -53,11 +53,13 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
     mock_game_id = 1
     mock_player_id = 10
     x, y = 0, 0
-    fig = "h1"
+    fig_id = 1
 
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
-        mock_shape_instance.shape_type = fig
+        mock_shape_instance.shape_type = "h1"
+        mock_shape_instance.owner_hand.id = mock_player_id
+        
 
         mock_player_instance = mock_player.return_value
         mock_player_instance.shapes = []
@@ -68,23 +70,24 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_player_instance.moves = movs
 
         # Setup mock game
+        mock_shape.get.return_value = mock_shape_instance
         mock_game_instance = mock_game.return_value
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.get_block_color.return_value = Color.r
         mock_game_instance.forbidden_color = Color.y
-
+        mock_game_instance.current_player_id = mock_player_id
 
         # Create separate instances for mock_bool_board
         mock_bool_board_instance = mock_bool_board.return_value
-        mock_bool_board_instance.shape_code = fig
+        mock_bool_board_instance.shape_code = "h1"
         mock_bool_board_instance.board = [[1, 0, 0], [1, 1, 1], [1, 0, 0]]
         
         mock_shapes_on_board.return_value = [mock_bool_board_instance]
 
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=mov1,mov2&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={fig_id}&used_movs={movs}&x={x}&y={y}")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -98,7 +101,8 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
 def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):
     mock_game_id = 1
     mock_player_id = 10
-    fig = "h1"
+    fig_id = 1
+    movs = "asdasd"
     x, y = 5, 5
 
     with patch('main.db_session'):
@@ -106,7 +110,7 @@ def test_claim_figure_game_or_player_not_found(client, mock_game, mock_player):
         mock_game.get.return_value = None
         mock_player.get.return_value = None
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=asdasd&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={fig_id}&used_movs={movs}&x={x}&y={y}")
         
         assert response.status_code == 200
         assert response.json() == {"message": f"Game {mock_game_id} or p {mock_player_id} do not exist.", STATUS: FAILURE}
@@ -115,21 +119,23 @@ def test_claim_figure_shape_not_found(client, mock_game, mock_player,
                                       mock_shape):
     mock_game_id = 1
     mock_player_id = 10
-    fig = "h1"
+    mock_fig_id = 2
     x, y = 5, 5
 
     with patch('main.db_session'):
         # Setup mock player without the figure in their hand
         mock_shape_instance = mock_shape.return_value 
-        mock_shape_instance.shape_type = fig
+        mock_shape_instance.shape_type = "h2"
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
         mock_game_instance = mock_game.return_value
+        mock_game_instance.current_player_id = mock_player_id
 
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
+        mock_shape.get.return_value = mock_shape_instance
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig=h2&used_movs=asdasd&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={mock_fig_id}&used_movs=asdasd&x={x}&y={y}")
 
         assert response.status_code == 200
         assert response.json() == {"message": f"p {mock_player_id} does not have the h2 card.", STATUS: FAILURE}
@@ -139,18 +145,21 @@ def test_claim_figure_not_on_board(client, mock_game, mock_player,
                                    mock_bool_board):
     mock_game_id = 1
     mock_player_id = 10
-    fig = "h1"
+    mock_shape_id = 1
     x, y = 5, 5
 
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
-        mock_shape_instance.shape_type = fig
+        mock_shape_instance.shape_type = "h1"
+        mock_shape_instance.owner_hand.id = mock_player_id
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
         mock_game_instance = mock_game.return_value
+        mock_game_instance.current_player_id = mock_player_id
 
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
+        mock_shape.get.return_value = mock_shape_instance
 
 
         # Create separate instances for mock_bool_board
@@ -165,33 +174,37 @@ def test_claim_figure_not_on_board(client, mock_game, mock_player,
         mock_shapes_on_board.return_value = [mock_bool_board_instance]
 
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=asdasd&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={mock_shape_id}&used_movs=asdasd&x={x}&y={y}")
 
         assert response.status_code == 200
-        assert response.json() == {"message": f"The figure {fig} is not in the current board.", STATUS: FAILURE}
+        assert response.json() == {"message": f"The figure h1 is not in the current board.", STATUS: FAILURE}
 
 def test_claim_figure_not_at_position(client, mock_game, mock_player,
                                       mock_shapes_on_board, mock_shape,
                                       mock_bool_board):
     mock_game_id = 1
     mock_player_id = 10
-    fig = "h1"
+    mock_fig_id = 1
     x, y = 0, 0
 
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
-        mock_shape_instance.shape_type = fig
+        mock_shape_instance.shape_type = "h1"
+        mock_shape_instance.owner_hand.id = mock_player_id
         # Setup mock player and game
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
         mock_game_instance = mock_game.return_value
+        mock_game_instance.current_player_id = mock_player_id
 
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
+        mock_shape.get.return_value = mock_shape_instance
+
 
         # Create separate instances for mock_bool_board
         mock_bool_board_instance = mock_bool_board.return_value
-        mock_bool_board_instance.shape_code = fig
+        mock_bool_board_instance.shape_code = "h1"
         mock_bool_board_instance.board = [[0, 1, 1], [1, 1, 1], [1, 1, 1]]
         
         
@@ -200,11 +213,11 @@ def test_claim_figure_not_at_position(client, mock_game, mock_player,
         # Mock the shapes on board to return the matching figure at position (x, y)
         mock_shapes_on_board.return_value = [mock_bool_board_instance]
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=asdasdasd&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={mock_fig_id}&used_movs=asdasdasd&x={x}&y={y}")
 
         assert response.status_code == 200
         assert response.json() == {
-            "message" : f"Figure {fig} exists in board, but not at ({x}, {y})",
+            "message" : f"Figure h1 exists in board, but not at ({x}, {y})",
             STATUS: FAILURE
         }
 
@@ -213,12 +226,12 @@ def test_forbidden_color_failure(client, mock_game, mock_player,
                                  mock_shape):
     mock_game_id = 1
     mock_player_id = 10
-    fig = "h1"
+    fig_id = 1
     x, y = 0, 0
 
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
-        mock_shape_instance.shape_type = fig
+        mock_shape_instance.shape_type = "h1"
         # Setup mock player and game
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
@@ -226,12 +239,13 @@ def test_forbidden_color_failure(client, mock_game, mock_player,
         mock_game_instance.forbidden_color = Color.y
         mock_game_instance.board = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
         mock_game_instance.get_block_color.return_value = "y"
+        mock_game_instance.current_player_id = mock_player_id
 
         mock_game.get.return_value = mock_game_instance
         mock_player.get.return_value = mock_player_instance
 
 
-        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig={fig}&used_movs=asdasdasd&x={x}&y={y}")
+        response = client.put(f"/claim_figure?game_id={mock_game_id}&player_id={mock_player_id}&fig_id={fig_id}&used_movs=asdasdasd&x={x}&y={y}")
 
         assert response.status_code == 200
         assert response.json() == {
