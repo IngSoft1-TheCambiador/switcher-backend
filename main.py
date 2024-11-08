@@ -818,7 +818,8 @@ async def get_messages(game_id : int):
                     STATUS: FAILURE}
 
         L = []
-        messages = select(m for m in Message).order_by(Message.timestamp)[:]
+        messages = sorted(Message.select(), key=lambda message: message.timestamp)
+        print(messages)
 
         for msg in messages:
             formatted_msg = json.dumps(
@@ -826,7 +827,7 @@ async def get_messages(game_id : int):
                     "message": msg.txt,
                     "sender_id": msg.player.id,
                     "sender_name": msg.player.name,
-                    "time": msg.timestamp
+                    "time": msg.timestamp.strftime('%H:%M')
                 }
             )
             L.append(formatted_msg)
@@ -836,15 +837,8 @@ async def get_messages(game_id : int):
             'message_list': L,
             STATUS: SUCCESS
         }
+      
 
-
-
-
-
-
-
-
-       
 @app.get("/get_current_time") 
 async def get_current_time(game_id : int):
     with db_session:
