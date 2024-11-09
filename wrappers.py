@@ -10,7 +10,6 @@ def is_valid_figure(board: str, fig: str, x: int, y: int):
     if len(λ) == 0:
         return {"message": f"The figure {fig} is not in the current board.",
                 STATUS: FAILURE}
-
     if all( [ β.board[x][y] == 0 for β in λ] ):
         msg = f"""Figure {fig} exists in board, but not at ({x}, {y})"""
         return {"message": msg, STATUS: FAILURE}
@@ -34,3 +33,11 @@ def search_is_valid(text, min, max):
         max in ["", "2", "3", "4"] and
         (min=="" or max=="" or int(min)<=int(max))
     )
+
+def is_valid_password(password):
+    if len(password) == 0:
+        return True
+    has_upper = any(char.isupper() for char in password)
+    has_digit = any(char.isdigit() for char in password)
+    is_correct_len = len(password) >= 8
+    return has_upper and has_digit and is_correct_len
