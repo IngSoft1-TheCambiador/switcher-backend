@@ -712,7 +712,8 @@ async def block_figure(game_id: int, player_id: int,
             game = game,
             player = p,
             timestamp = datetime.now(),
-            log = True
+            log = True,
+            played_cards = cards_to_send
             )
 
             broadcast_log = "LOG:" + json.dumps({
@@ -727,7 +728,8 @@ async def block_figure(game_id: int, player_id: int,
             game = game,
             player = p,
             timestamp = datetime.now(),
-            log = True
+            log = True,
+            played_cards = cards_to_send
             )
 
             broadcast_log = "LOG:" + json.dumps({
@@ -826,7 +828,8 @@ async def claim_figure(game_id : int,
             game = game,
             player = p,
             timestamp = datetime.now(),
-            log = True
+            log = True,
+            played_cards = cards_to_send
             )
 
             broadcast_log = "LOG:" + json.dumps({
@@ -841,7 +844,8 @@ async def claim_figure(game_id : int,
             game = game,
             player = p,
             timestamp = datetime.now(),
-            log = True
+            log = True,
+            played_cards = cards_to_send
             )
 
             broadcast_log = "LOG:" + json.dumps({
@@ -944,18 +948,25 @@ async def get_messages(game_id : int):
                     STATUS: FAILURE}
 
         L = []
-        messages = sorted(Message.select(), key=lambda message: message.timestamp)
+        messages = sorted(Message.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
         print(messages)
 
         for msg in messages:
-            formatted_msg = json.dumps(
-                {
-                    "message": msg.txt,
-                    "sender_id": msg.player.id,
-                    "sender_name": msg.player.name,
-                    "time": msg.timestamp.strftime('%H:%M')
-                }
-            )
+            if(not msg.log):
+                formatted_msg = {
+                        "sender": msg.player.name,
+                        "color": msg.player.color,
+                        "message": msg.content,
+                        "time": msg.timestamp.strftime('%H:%M')
+                    }
+            else:
+                formatted_msg = {
+                        "sender": "Log",
+                        "color": "log",
+                        "message": msg.content,
+                        "time": msg.timestamp.strftime('%H:%M'),
+                        "cards": msg.played_cards
+                    }
             L.append(formatted_msg)
 
 

@@ -491,6 +491,10 @@ class Message(db.Entity):
         The game to which the message belongs.
     player : Player
         The player who sent the message.
+    log : bool
+        Indicates if it is a log message.
+    played_cards: list
+        A list of the played cards (only relevant to log messages)
     """
     id = PrimaryKey(int, auto=True)
     content = Required(str)
@@ -498,6 +502,7 @@ class Message(db.Entity):
     game = Required(Game, reverse='messages')
     player = Required(Player, reverse='messages')
     log = Required(bool, default=False)
+    played_cards = Optional(StrArray, default=[])
 
 
 
