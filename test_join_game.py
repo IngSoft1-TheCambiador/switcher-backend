@@ -60,7 +60,7 @@ def test_join_game(client, mock_game, mock_player, mock_manager):
         assert mock_game_instance.create_player.called  # Ensures create_player was called
 
 
-def test_join_game_errors(client, mock_game, mock_player, mock_manager):
+def test_game_already_full(client, mock_game, mock_player, mock_manager):
     mock_game_id = 5
 
     with patch('main.db_session'):
@@ -84,3 +84,33 @@ def test_join_game_errors(client, mock_game, mock_player, mock_manager):
         response = client.post(f"/join_game?socket_id={0}&game_id={mock_game_id}&player_name=Anything")
         assert response.json() == {"error": "Game is already full",
                                    STATUS: FAILURE}
+
+def test_invalid_password(client, mock_game, mock_player, mock_manager):
+    mock_game_id = 5
+
+    with patch('main.db_session'):
+
+        mock_player_instance = mock_player.return_value
+        mock_player_instance.name = "John"
+        mock_player_instance.id = 5
+
+        mock_game_instance = mock_game.return_value
+        mock_game_instance.owner_id = mock_player_instance.id
+        mock_game_instance.players = [mock_player_instance]
+        mock_game_instance.max_players = 4
+       
+        mock_game_instance = mock_game.return_value
+        mock_game_instance.password = "TheCorrectPassword1"
+        
+        mock_game.get.return_value = mock_game_instance
+        
+        response = client.post(f"/join_game?socket_id={0}&game_id={mock_game_id}&player_name=John&password=TheIncorrectPassword2")
+
+        assert response.status_code == 200
+        
+        assert response.json() == {
+            "error": "Incorrect password",
+            STATUS: FAILURE
+        }
+
+        assert not mock_game_instance.create_player.called  # Ensures create_player was called

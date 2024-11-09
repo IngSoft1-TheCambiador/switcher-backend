@@ -183,6 +183,7 @@ class Game(db.Entity):
     move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
     forbidden_color = Optional(str, default=Color.NULL_COLOR)
     messages = Set("Message", reverse="game")
+    password = Optional(str, default="")
 
     @db_session
     def create_player(self, player_name):
