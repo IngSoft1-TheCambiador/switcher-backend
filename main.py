@@ -8,7 +8,7 @@ from connections import ConnectionManager, get_time
 from orm import Game, Player, Shape, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
-from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH, PRIVATE
 from constants import SUCCESS, FAILURE, TURN_DURATION
 from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid, is_valid_password
 import json
@@ -145,7 +145,8 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
             game_row = {GAME_ID : game.id, 
                 GAME_NAME : game.name,
                 GAME_MIN : game.min_players,
-                GAME_MAX : game.max_players}
+                GAME_MAX : game.max_players,
+                PRIVATE : game.private}
             response_data.append(game_row)
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
@@ -185,7 +186,8 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
         new_game = Game(name=game_name, 
                         min_players=min_players,
                         max_players=max_players,
-                        password=password
+                        password=password,
+                        private=len(password) > 0
                         )
 
 

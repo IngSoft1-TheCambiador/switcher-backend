@@ -169,6 +169,14 @@ class Game(db.Entity):
         on it.
     move_deck : list of strings 
         A list of strings representing movement cards not held by any player.
+    forbidden_color : Optional(str, default=Color.NULL_COLOR)
+        The forbidden color in the game.
+    messages : Set("Message", reverse="game")
+        The messages sent in this game.
+    password : str 
+        The password of the game 
+    private : bool 
+        Does the game have a password?
     """
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
@@ -184,6 +192,7 @@ class Game(db.Entity):
     forbidden_color = Optional(str, default=Color.NULL_COLOR)
     messages = Set("Message", reverse="game")
     password = Optional(str, default="")
+    private = Optional(bool, default=False)
 
     @db_session
     def create_player(self, player_name):
