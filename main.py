@@ -30,7 +30,26 @@ class Timer(threading.Thread):
                     player = Player.get(id = game.current_player_id)            
                     game.current_player_id = player.next
                     game.complete_player_hands(player)
-                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
+
+                    # Send log report
+                    nextPlayer = Player.get(id=player.next)
+
+                    message = Message(
+                    content = f"A {player.name} se le ha acabado el tiempo. Te toca, {nextPlayer.name}!",
+                    game = game,
+                    player = player,
+                    timestamp = datetime.now(),
+                    log = True
+                    )
+                    
+                    broadcast_log = "LOG:" + json.dumps({
+                    "message": message.content,
+                    "time": message.timestamp.strftime('%H:%M')
+                    })
+                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_SKIP {get_time()}"))
+                asyncio.run(manager.broadcast_in_game(self.game_id, broadcast_log))
+
+                
                 
             self.current_time = (self.current_time - 1) % (TURN_DURATION + 1) 
             
@@ -233,6 +252,7 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             content = f"{p.name} abandono la partida.",
             game = game,
             player = p,
+            timestamp = datetime.now(),
             log = True
             )
 
@@ -515,6 +535,7 @@ async def skip_turn(game_id : int, player_id : int):
         content = f"{player.name} ha saltado su turno. Te toca, {nextPlayer.name}!",
         game = game,
         player = player,
+        timestamp = datetime.now(),
         log = True
         )
 
@@ -679,39 +700,42 @@ async def block_figure(game_id: int, player_id: int,
         make_partial_moves_effective(game, used_movs, player_id)
         shape.is_blocked = True
 
-        # Send log report of used movement cards
+        # Send log report of used cards
+        blocked_player = shape.owner_hand
+        cards_to_send = [shape.shape_type]
+
         if used_movs != '':
-            movsMessage = Message(
-            content = f"{p.name} ha usado: ",
+            cards_to_send.extend(used_movs.split(","))
+            
+            message = Message(
+            content = f"{p.name} ha usado: &?&{p.name} le ha bloqueado a {blocked_player.name} la figura: ",
             game = game,
             player = p,
+            timestamp = datetime.now(),
             log = True
             )
 
-            broadcast_log_movs = "LOG:" + json.dumps({
-                "message": movsMessage.content,
-                "time": movsMessage.timestamp.strftime('%H:%M'),
-                "cards": used_movs.split(",")
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M'),
+                "cards": cards_to_send
                 })
-            await manager.broadcast_in_game(game_id, broadcast_log_movs)
+            await manager.broadcast_in_game(game_id, broadcast_log)
+        else:
+            message = Message(
+            content = f"{p.name} le ha bloqueado a {blocked_player.name} la figura: ",
+            game = game,
+            player = p,
+            timestamp = datetime.now(),
+            log = True
+            )
 
-
-        # Send log report of blocked figure
-        blocked_player = shape.owner_hand
-        
-        shapeMessage = Message(
-        content = f"{p.name} le ha bloqueado a {blocked_player.name} la figura: ",
-        game = game,
-        player = p,
-        log = True
-        )
-
-        broadcast_log = "LOG:" + json.dumps({
-            "message": shapeMessage.content,
-            "time": shapeMessage.timestamp.strftime('%H:%M'),
-            "cards": [shape.shape_type]
-            })
-        await manager.broadcast_in_game(game_id, broadcast_log)
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M'),
+                "cards": cards_to_send
+                })
+            await manager.broadcast_in_game(game_id, broadcast_log)
 
         return {
             "true_board" : game.board,
@@ -790,40 +814,47 @@ async def claim_figure(game_id : int,
         game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
 
-        # Send log report of used movement cards
+
+        # Send log report of used cards
+        cards_to_send = [shape.shape_type]
+
         if used_movs != '':
-            movsMessage = Message(
-            content = f"{p.name} ha usado: ",
+            cards_to_send.extend(used_movs.split(","))
+
+            message = Message(
+            content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: ",
             game = game,
             player = p,
+            timestamp = datetime.now(),
             log = True
             )
 
-            broadcast_log_movs = "LOG:" + json.dumps({
-                "message": movsMessage.content,
-                "time": movsMessage.timestamp.strftime('%H:%M'),
-                "cards": used_movs.split(",")
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M'),
+                "cards": cards_to_send
                 })
-            await manager.broadcast_in_game(game_id, broadcast_log_movs)
+            await manager.broadcast_in_game(game_id, broadcast_log)
+        else:
+            message = Message(
+            content = f"{p.name} ha completado la figura: ",
+            game = game,
+            player = p,
+            timestamp = datetime.now(),
+            log = True
+            )
+
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M'),
+                "cards": cards_to_send
+                })
+            await manager.broadcast_in_game(game_id, broadcast_log)
+
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             await trigger_win_event(game, p)
             return {"message" : f"Player {p.name} won the game"}
-        
-        # Send log report of claimed figure
-        shapeMessage = Message(
-        content = f"{p.name} ha completado la figura: ",
-        game = game,
-        player = p,
-        log = True
-        )
-
-        broadcast_log = "LOG:" + json.dumps({
-            "message": shapeMessage.content,
-            "time": shapeMessage.timestamp.strftime('%H:%M'),
-            "cards": [shape.shape_type]
-            })
-        await manager.broadcast_in_game(game_id, broadcast_log)
 
         msg = f"""
             Figure {shape.shape_type} was claimed by player {p.id}. Partial moves were permanently applied.
@@ -884,7 +915,7 @@ async def send_message(game_id : int, sender_id : int, txt : str):
         await manager.broadcast_in_game(game_id, broadcast_messasge)
         return {
             'message': txt,
-            'sender_id': sender_id,
+            'sender_color': p.color,
             'sender_name': p.name,
             'time': message.timestamp.strftime('%H:%M'),
             STATUS: SUCCESS

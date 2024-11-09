@@ -40,6 +40,7 @@ def test_send_message(client, mock_game, mock_player, mock_message, mock_manager
         player_a = mock_player.return_value 
         player_a.name = "A"
         player_a.id = 1
+        player_a.color = "r"
         mock_player.get.return_value = player_a
 
 
@@ -59,7 +60,7 @@ def test_send_message(client, mock_game, mock_player, mock_message, mock_manager
         assert response.status_code == 200
         assert response.json() == {
             "message": message,
-            "sender_id": player_a.id,
+            "sender_color": player_a.color,
             "sender_name": player_a.name,
             "time": "00:00",
             STATUS: SUCCESS
