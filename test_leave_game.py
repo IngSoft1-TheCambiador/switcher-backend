@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app, manager  
 from constants import STATUS, SUCCESS
+from datetime import datetime
 
 
 @pytest.fixture
@@ -20,6 +21,11 @@ def mock_player(mocker):
     mock_player = mocker.patch('main.Player')
     return mock_player
 
+@pytest.fixture 
+def mock_message(mocker):
+    mock_message = mocker.patch('main.Message')
+    return mock_message
+
 
 @pytest.fixture
 def mock_manager():
@@ -27,7 +33,7 @@ def mock_manager():
     with patch.object(manager, 'remove_from_game', new_callable=AsyncMock) as mock_add:
         yield mock_add
 
-def test_leave_game(client, mock_game, mock_player, mock_manager):
+def test_leave_game(client, mock_game, mock_player, mock_message, mock_manager):
 
     with patch('main.db_session'):
       
@@ -38,6 +44,11 @@ def test_leave_game(client, mock_game, mock_player, mock_manager):
         player_a.id = 1
         player_b.name = "B"
         player_b.id = 2
+
+        # Mock message
+        mock_message_instance = mock_message.return_value
+        mock_message_instance.content = "i am a mockero, and i need a mock-hero"
+        mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 
         mock_game_instance = mock_game.return_value
         mock_game_instance.id = 100
@@ -57,7 +68,7 @@ def test_leave_game(client, mock_game, mock_player, mock_manager):
             "message": f"Succesfully removed player with id 2 from game {mock_game_instance.id}", STATUS: SUCCESS
         }
 
-def test_turn_adjustment(client, mock_game, mock_player, mock_manager):
+def test_turn_adjustment(client, mock_game, mock_player, mock_message, mock_manager):
 
     with patch('main.db_session'):
       
@@ -78,6 +89,10 @@ def test_turn_adjustment(client, mock_game, mock_player, mock_manager):
         # the current turn is `player_b` and `player_a == player_b.next ≡ True`.
         mock_player.get.return_value = player_a
 
+        # Mock message
+        mock_message_instance = mock_message.return_value
+        mock_message_instance.content = "i am a mockero, and i need a mock-hero"
+        mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 
         mock_game_instance = mock_game.return_value
         mock_game_instance.current_player = player_b
@@ -97,7 +112,7 @@ def test_turn_adjustment(client, mock_game, mock_player, mock_manager):
 
         
 
-def test_game_ending(client, mock_game, mock_player, mock_manager):
+def test_game_ending(client, mock_game, mock_player, mock_message, mock_manager):
 
     with patch('main.db_session'):
       
@@ -108,6 +123,12 @@ def test_game_ending(client, mock_game, mock_player, mock_manager):
         player_a.id = 1
         player_b.name = "B"
         player_b.id = 2
+
+
+        # Mock message
+        mock_message_instance = mock_message.return_value
+        mock_message_instance.content = "i am a mockero, and i need a mock-hero"
+        mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 
         mock_game_instance = mock_game.return_value
         mock_game_instance.id = 100

@@ -3,6 +3,7 @@ from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app, manager
 from constants import SUCCESS, STATUS
+from datetime import datetime
 
 @pytest.fixture
 def client():
@@ -19,6 +20,11 @@ def mock_player(mocker):
     mock_player = mocker.patch('main.Player')
     return mock_player
 
+@pytest.fixture 
+def mock_message(mocker):
+    mock_message = mocker.patch('main.Message')
+    return mock_message
+
 
 @pytest.fixture
 def mock_manager():
@@ -27,7 +33,7 @@ def mock_manager():
         yield mock_broadcast
 
 @pytest.mark.asyncio
-async def test_skip_turn_success(client, mock_player, mock_game, mock_manager):
+async def test_skip_turn_success(client, mock_player, mock_game, mock_message, mock_manager):
 
     mock_game_instance = mock_game.return_value
     mock_game_instance.id = 1
@@ -42,6 +48,11 @@ async def test_skip_turn_success(client, mock_player, mock_game, mock_manager):
     # Ensure `Game.get()` and `Player.get()` return the mocked instances
     mock_game.get.return_value = mock_game_instance
     mock_player.get.return_value = mock_player_instance
+
+    # Mock message
+    mock_message_instance = mock_message.return_value
+    mock_message_instance.content = "i am a mockero, and i need a mock-hero"
+    mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 
     # Make the request with query params
     response = client.put(
