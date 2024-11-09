@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
 from pony.orm import db_session, select
 from connections import ConnectionManager, get_time
-from orm import Game, Player, Shape, Message
+from orm import Game, Player, Shape, PlayerMessage, LogMessage, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
@@ -34,12 +34,11 @@ class Timer(threading.Thread):
                     # Send log report
                     nextPlayer = Player.get(id=player.next)
 
-                    message = Message(
-                    content = f"A {player.name} se le ha acabado el tiempo. Te toca, {nextPlayer.name}!",
-                    game = game,
-                    player = player,
-                    timestamp = datetime.now(),
-                    log = True
+                    message = LogMessage(
+                        content = f"A {player.name} se le ha acabado el tiempo. Te toca, {nextPlayer.name}!",
+                        game = game,
+                        player = player,
+                        timestamp = datetime.now(),
                     )
                     
                     broadcast_log = "LOG:" + json.dumps({
@@ -248,12 +247,10 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
                 timers[game_id].start()
 
            # Send log report
-            message = Message(
-            content = f"{p.name} abandono la partida.",
-            game = game,
-            player = p,
-            timestamp = datetime.now(),
-            log = True
+            message = LogMessage(
+                content = f"{p.name} abandono la partida.",
+                game = game,
+                timestamp = datetime.now(),
             )
 
             broadcast_log = "LOG:" + json.dumps({
@@ -531,12 +528,10 @@ async def skip_turn(game_id : int, player_id : int):
        # Send log report
         nextPlayer = Player.get(id=player.next)
 
-        message = Message(
-        content = f"{player.name} ha saltado su turno. Te toca, {nextPlayer.name}!",
-        game = game,
-        player = player,
-        timestamp = datetime.now(),
-        log = True
+        message = LogMessage(
+            content = f"{player.name} ha saltado su turno. Te toca, {nextPlayer.name}!",
+            game = game,
+            timestamp = datetime.now(),
         )
 
         broadcast_log = "LOG:" + json.dumps({
@@ -706,38 +701,23 @@ async def block_figure(game_id: int, player_id: int,
 
         if used_movs != '':
             cards_to_send.extend(used_movs.split(","))
-            
-            message = Message(
-            content = f"{p.name} ha usado: &?&{p.name} le ha bloqueado a {blocked_player.name} la figura: ",
-            game = game,
-            player = p,
-            timestamp = datetime.now(),
-            log = True,
-            played_cards = cards_to_send
-            )
-
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M'),
-                "cards": cards_to_send
-                })
-            await manager.broadcast_in_game(game_id, broadcast_log)
+            msg_content = f"{p.name} ha usado: &?&{p.name} le ha bloqueado a {blocked_player.name} la figura: "
         else:
-            message = Message(
-            content = f"{p.name} le ha bloqueado a {blocked_player.name} la figura: ",
-            game = game,
-            player = p,
-            timestamp = datetime.now(),
-            log = True,
-            played_cards = cards_to_send
-            )
+            msg_content = f"{p.name} le ha bloqueado a {blocked_player.name} la figura: "
 
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M'),
-                "cards": cards_to_send
-                })
-            await manager.broadcast_in_game(game_id, broadcast_log)
+        message = LogMessage(
+            content = msg_content,
+            game = game,
+            timestamp = datetime.now(),
+            played_cards = cards_to_send
+        )
+
+        broadcast_log = "LOG:" + json.dumps({
+            "message": message.content,
+            "time": message.timestamp.strftime('%H:%M'),
+            "cards": cards_to_send
+            })
+        await manager.broadcast_in_game(game_id, broadcast_log)
 
         return {
             "true_board" : game.board,
@@ -822,39 +802,24 @@ async def claim_figure(game_id : int,
 
         if used_movs != '':
             cards_to_send.extend(used_movs.split(","))
-
-            message = Message(
-            content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: ",
-            game = game,
-            player = p,
-            timestamp = datetime.now(),
-            log = True,
-            played_cards = cards_to_send
-            )
-
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M'),
-                "cards": cards_to_send
-                })
-            await manager.broadcast_in_game(game_id, broadcast_log)
+            msg_content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: ",
         else:
-            message = Message(
-            content = f"{p.name} ha completado la figura: ",
+            msg_content = f"{p.name} ha completado la figura: ",
+
+        message = LogMessage(
+            content = msg_content,
             game = game,
-            player = p,
             timestamp = datetime.now(),
-            log = True,
             played_cards = cards_to_send
-            )
+        )
 
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M'),
-                "cards": cards_to_send
-                })
-            await manager.broadcast_in_game(game_id, broadcast_log)
+        broadcast_log = "LOG:" + json.dumps({
+            "message": message.content,
+            "time": message.timestamp.strftime('%H:%M'),
+            "cards": cards_to_send
+            })
 
+        await manager.broadcast_in_game(game_id, broadcast_log)
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             await trigger_win_event(game, p)
@@ -901,7 +866,7 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             return {"message": f"Game {game_id} or p {sender_id} do not exist.",
                     STATUS: FAILURE}
 
-        message = Message(
+        message = PlayerMessage(
             content = txt,
             game = game,
             player = p,
@@ -949,24 +914,28 @@ async def get_messages(game_id : int):
 
         L = []
         messages = sorted(Message.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
-        print(messages)
 
         for msg in messages:
-            if(not msg.log):
+            print(msg.content)
+            # Ideally, we would use `isinstance`, but doesn't seem to work with 
+            # db.Entities.
+            class_name = msg.__class__.__name__
+            if class_name == 'PlayerMessage':
                 formatted_msg = {
                         "sender": msg.player.name,
                         "color": msg.player.color,
                         "message": msg.content,
                         "time": msg.timestamp.strftime('%H:%M')
                     }
-            else:
+            elif class_name == 'LogMessage':
                 formatted_msg = {
-                        "sender": "Log",
-                        "color": "log",
                         "message": msg.content,
                         "time": msg.timestamp.strftime('%H:%M'),
                         "cards": msg.played_cards
                     }
+            else: 
+                return{"error": "CRITICAL ERROR: Non-specific message type found among the message database.", 
+                       STATUS: FAILURE}
             L.append(formatted_msg)
 
 

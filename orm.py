@@ -82,7 +82,7 @@ class Player(db.Entity):
     shapes = Set(Shape, reverse="owner")
     current_shapes = Set(Shape, reverse="owner_hand") 
     next = Required(int, default=0) 
-    messages = Set("Message", reverse="player")
+    messages = Set("PlayerMessage", reverse="player")
 
     @db_session
     def add_move(self, move):
@@ -500,12 +500,13 @@ class Message(db.Entity):
     content = Required(str)
     timestamp = Required(datetime)
     game = Required(Game, reverse='messages')
+
+
+class PlayerMessage(Message):
     player = Required(Player, reverse='messages')
-    log = Required(bool, default=False)
-    played_cards = Optional(StrArray, default=[])
 
-
-
+class LogMessage(Message):
+    played_cards = Required(StrArray, default=[])
 
 
 
