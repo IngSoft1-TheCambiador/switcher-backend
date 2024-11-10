@@ -444,7 +444,8 @@ def game_state(socket_id : int):
             return {"message": f"Game {game_id} does not exist.",
                     STATUS : FAILURE }
 
-        f_cards, f_hands, m_cards, names, colors, f_hand_ids, f_deck_ids = {}, {}, {}, {}, {}, {}, {}
+        f_cards, m_cards, names, colors, f_deck_ids = {}, {}, {}, {}, {}
+        f_hands, f_hand_ids, f_hand, f_hand_bloqued = {}, {}, {}, {}
         player_ids = []
         for p in game.players:
             player_ids.append(p.id)
@@ -454,18 +455,15 @@ def game_state(socket_id : int):
             names[p.id] = p.name
             colors[p.id] = p.color
 
-            # Get f_hand_ids and f_hands and sort them by f_hand_ids
-            f_hand_ids[p.id] = [f.id for f in p.current_shapes]
-            f_hands[p.id] = [f.shape_type for f in p.current_shapes ]
-            if f_hand_ids[p.id] != []:
-                f_hand_aux = sorted(zip(f_hand_ids[p.id], f_hands[p.id]))
-                f_hand_ids[p.id], f_hands[p.id] = list(map(list, zip(*f_hand_aux)))
-
+            f_hands[p.id] = sorted(p.current_shapes)
+            f_hand_ids[p.id] = [f.id for f in f_hands[p.id]]
+            f_hand[p.id] = [f.shape_type for f in f_hands[p.id] ]
+            f_hand_bloqued[p.id] = [f.is_blocked for f in f_hands[p.id] ]
         
         ingame_shapes = []
         
         for cards in f_hands.values():
-            ingame_shapes = ingame_shapes + cards
+            ingame_shapes += [card.shape_type for card in cards if not card.is_blocked]
             
         boolean_boards = [b for b in shapes_on_board(game.board) if b.shape_code in ingame_shapes]
         highlighted_squares = [0 for _ in range(36)]
@@ -481,7 +479,8 @@ def game_state(socket_id : int):
             "player_names": names,
             "player_colors": colors,
             "player_f_cards": f_cards,
-            "player_f_hand": f_hands,
+            "player_f_hand": f_hand,
+            "player_f_hand_bloqued": f_hand_bloqued,
             "player_f_hand_ids": f_hand_ids,
             "player_f_deck_ids": f_deck_ids,
             "player_m_cards": m_cards,
@@ -702,6 +701,18 @@ async def block_figure(game_id: int, player_id: int,
         if shape is None:
             return {"message": f"Figure card {fig_id} does not exist",
                     STATUS: FAILURE}
+        
+        if shape.owner_hand.id == player_id:
+            return {"message": f"Can't block your own card.",
+                    STATUS: FAILURE}
+        
+        if shape.is_blocked:
+            return {"message": f"The card is already blocked.",
+                    STATUS: FAILURE}
+        
+        if any(f.is_blocked for f in shape.owner_hand.current_shapes):
+            return {"message": f"Another card of {shape.owner_hand.id} has already been blocked.",
+                    STATUS: FAILURE}
 
         is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
@@ -804,6 +815,10 @@ async def claim_figure(game_id : int,
         if shape.owner_hand.id != player_id:
             return {"message": f"p {player_id} does not have the {shape.shape_type} card.",
                     STATUS: FAILURE}
+        
+        if shape.is_blocked:
+            return {"message": f"The card is blocked.",
+                    STATUS: FAILURE}
 
         is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
@@ -838,17 +853,33 @@ async def claim_figure(game_id : int,
             "cards": cards_to_send
             })
 
-        await manager.broadcast_in_game(game_id, broadcast_log)
+        shape.delete()
 
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             await trigger_win_event(game, p)
             return {"message" : f"Player {p.name} won the game"}
+        
+        await manager.broadcast_in_game(game_id, broadcast_log)
 
-        msg = f"""
-            Figure {shape.shape_type} was claimed by player {p.id}. Partial moves were permanently applied.
-            """
-        shape.delete()
-        await manager.broadcast_in_game(game_id, msg)
+        if len(p.current_shapes) == 1:
+            s = [s for s in p.current_shapes]
+            s[0].is_blocked = False
+
+            # Send log report for card unlock
+            message = LogMessage(
+                content = f"{p.name} desbloqueo su figura: ",
+                game = game,
+                timestamp = datetime.now(),
+                played_cards = [s[0].shape_type]
+            )
+
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M'),
+                "cards": message.played_cards
+            })
+
+            await manager.broadcast_in_game(game_id, broadcast_log)
 
         return {
             "true_board" : game.board,
