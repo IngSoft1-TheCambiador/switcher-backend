@@ -445,7 +445,7 @@ def game_state(socket_id : int):
                     STATUS : FAILURE }
 
         f_cards, m_cards, names, colors, f_deck_ids = {}, {}, {}, {}, {}
-        f_hands, f_hand_ids, f_hand, f_hand_bloqued = {}, {}, {}, {}
+        f_hands, f_hand_ids, f_hand, f_hand_blocked = {}, {}, {}, {}
         player_ids = []
         for p in game.players:
             player_ids.append(p.id)
@@ -458,7 +458,7 @@ def game_state(socket_id : int):
             f_hands[p.id] = sorted(p.current_shapes)
             f_hand_ids[p.id] = [f.id for f in f_hands[p.id]]
             f_hand[p.id] = [f.shape_type for f in f_hands[p.id] ]
-            f_hand_bloqued[p.id] = [f.is_blocked for f in f_hands[p.id] ]
+            f_hand_blocked[p.id] = [f.is_blocked for f in f_hands[p.id] ]
         
         ingame_shapes = []
         
@@ -480,7 +480,7 @@ def game_state(socket_id : int):
             "player_colors": colors,
             "player_f_cards": f_cards,
             "player_f_hand": f_hand,
-            "player_f_hand_bloqued": f_hand_bloqued,
+            "player_f_hand_blocked": f_hand_blocked,
             "player_f_hand_ids": f_hand_ids,
             "player_f_deck_ids": f_deck_ids,
             "player_m_cards": m_cards,
@@ -815,7 +815,7 @@ async def claim_figure(game_id : int,
         if shape.owner_hand.id != player_id:
             return {"message": f"p {player_id} does not have the {shape.shape_type} card.",
                     STATUS: FAILURE}
-        
+       
         if shape.is_blocked:
             return {"message": f"The card is blocked.",
                     STATUS: FAILURE}
