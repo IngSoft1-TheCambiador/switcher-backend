@@ -25,6 +25,7 @@ async def test_create_game(mock_game_class, mock_manager, mock_player):
     socket_id = 1
     game_name = "Test Game"
     player_name = "Host"
+    password = "Apassword123"
 
     mock_game_instance = mock_game_class.return_value
     mock_game_instance.id = 42
@@ -43,15 +44,15 @@ async def test_create_game(mock_game_class, mock_manager, mock_player):
     
     # Call the endpoint
     response = client.put(
-        f"/create_game?socket_id={socket_id}&game_name={game_name}&player_name={player_name}"
+        f"/create_game?socket_id={socket_id}&game_name={game_name}&player_name={player_name}&password={password}"
     )
     
     assert response.status_code == 200
     response_data = response.json()
    
-    # Check the response and mock calls
-    assert response_data['game_id'] == mock_game_instance.id  # Check mocked game ID
-    assert response_data['player_id'] == 1  # Check mocked player ID
+    assert response_data['game_id'] == mock_game_instance.id  
+    assert response_data['player_id'] == 1  
+    assert response_data['password'] == password 
     
     # Assert that the WebSocket manager's add_to_game was called with the correct args
     mock_manager.assert_called_once_with(socket_id, 42)
@@ -106,6 +107,65 @@ def test_create_multiple_games(mock_game_class, mock_manager, mock_player):
             PLAYER_ID: mock_game_instance.owner_id,
             GAME_MAX: games[i]["max_players"],
             GAME_MIN: games[i]["min_players"],
+            "password": "",
             STATUS: SUCCESS
         }
+
+
+
+@pytest.mark.asyncio
+@patch("main.Game")
+async def test_invalid_password(mock_game_class, mock_manager, mock_player):
+
+   
+    # Password with number and uppercase, but incorrect length
+    password = "Aasd1"
+    # Call the endpoint
+    response = client.put(
+        f"/create_game?socket_id={1}&game_name=Whatever&player_name=Whatever2&password={password}"
+    )
+
+    
+    assert response.status_code == 200
+    response_data = response.json()
+
+    assert response_data == {
+                "error": f"Invalid password {password}. Valid passwords should either be the empty string (for no password), or a password of >= 8 characters with at least one number and at least one uppercase character",
+                STATUS: FAILURE
+    }
+
+
+    # Password with correct length and uppercase, but no number
+    password = "Asdasdasdasd"
+    # Call the endpoint
+    response = client.put(
+        f"/create_game?socket_id={1}&game_name=Whatever&player_name=Whatever2&password={password}"
+    )
+
+    
+    assert response.status_code == 200
+    response_data = response.json()
+
+    assert response_data == {
+                "error": f"Invalid password {password}. Valid passwords should either be the empty string (for no password), or a password of >= 8 characters with at least one number and at least one uppercase character",
+                STATUS: FAILURE
+    }
+   
+    # Password with correct length and number, but no uppercase
+    password = "1sdasdasdasd"
+    # Call the endpoint
+    response = client.put(
+        f"/create_game?socket_id={1}&game_name=Whatever&player_name=Whatever2&password={password}"
+    )
+
+    
+    assert response.status_code == 200
+    response_data = response.json()
+
+    assert response_data == {
+                "error": f"Invalid password {password}. Valid passwords should either be the empty string (for no password), or a password of >= 8 characters with at least one number and at least one uppercase character",
+                STATUS: FAILURE
+    }
+   
+    
 

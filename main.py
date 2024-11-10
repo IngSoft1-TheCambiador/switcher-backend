@@ -8,9 +8,9 @@ from connections import ConnectionManager, get_time
 from orm import Game, Player, Shape, PlayerMessage, LogMessage, Message
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
-from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH, PRIVATE
 from constants import SUCCESS, FAILURE, TURN_DURATION
-from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
+from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid, is_valid_password
 import json
 from datetime import datetime
 
@@ -162,7 +162,8 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
             game_row = {GAME_ID : game.id, 
                 GAME_NAME : game.name,
                 GAME_MIN : game.min_players,
-                GAME_MAX : game.max_players}
+                GAME_MAX : game.max_players,
+                PRIVATE : game.private}
             response_data.append(game_row)
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
@@ -171,7 +172,8 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
 
 @app.put("/create_game/")
 async def create_game(socket_id : int, game_name : str, player_name : str,
-                      min_players : int =2, max_players : int =4):
+                      min_players : int =2, max_players : int = 4,
+                      password : str = ""):
     """
     This PUT endpoint creates a new `Game` object in the database. The game is
     immediately associated to (a) a player (its host or creator) and (b) a
@@ -191,10 +193,23 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
         Maximum number of players which can join the game.
     """
     with db_session:
+
+        if not is_valid_password(password):
+            return {
+                "error": f"Invalid password {password}. Valid passwords should either be the empty string (for no password), or a password of >= 8 characters with at least one number and at least one uppercase character",
+                STATUS: FAILURE
+            }
+
         new_game = Game(name=game_name, 
                         min_players=min_players,
-                        max_players=max_players
+                        max_players=max_players,
+                        password=password,
+                        private=len(password) > 0
                         )
+
+
+
+
         pid = new_game.create_player(player_name)
         new_game.owner_id = pid
         await manager.add_to_game(socket_id, new_game.id)
@@ -205,6 +220,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
             PLAYER_ID : pid,
             GAME_MAX : new_game.max_players,
             GAME_MIN : new_game.min_players,
+            "password": password,
             STATUS : SUCCESS,
         }
 
@@ -340,7 +356,8 @@ async def connect(websocket: WebSocket):
 
 
 @app.post("/join_game")
-async def join_game(socket_id : int, game_id : int, player_name : str):
+async def join_game(socket_id : int, game_id : int, player_name : str,
+                    password : str = ""):
     """
     
     Creates a new player in a game. This function handles creating the `Player`
@@ -353,8 +370,10 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         ID of the websocket through which communication with the new player will occur. 
     game_id : int 
         The ID of the game where the new player will be created.
-    game_player : str 
+    player_name : str 
         The name of the created player.
+    password : str | defaults to ""
+        A password which must match that of the game
         
     """
     with db_session:
@@ -374,8 +393,9 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         if len(game.players) +1 == game.max_players:
             await manager.broadcast_in_list("GAMES LIST UPDATED")
 
-        #if player_name in [ p.name for p in game.players ]:
-            #return{"error" : "A player with this name already exists in the game"}
+        if len(game.password) > 0 and password != game.password:
+            return {"error": "Incorrect password",
+                    STATUS : FAILURE}
 
         pid = game.create_player(player_name)
         await manager.add_to_game(socket_id, game_id)
