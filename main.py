@@ -713,6 +713,10 @@ async def block_figure(game_id: int, player_id: int,
         if any(f.is_blocked for f in shape.owner_hand.current_shapes):
             return {"message": f"Another card of {shape.owner_hand.id} has already been blocked.",
                     STATUS: FAILURE}
+        
+        if len(p.current_shapes) == 1:
+            return {"message": f"Can't block the last card of the hand.",
+                    STATUS: FAILURE}
 
         is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
@@ -863,23 +867,25 @@ async def claim_figure(game_id : int,
 
         if len(p.current_shapes) == 1:
             s = [s for s in p.current_shapes]
-            s[0].is_blocked = False
+            if s[0].is_blocked:
+                s[0].is_blocked = False
+                s[0].was_blocked = True
 
-            # Send log report for card unlock
-            message = LogMessage(
-                content = f"{p.name} desbloqueo su figura: ",
-                game = game,
-                timestamp = datetime.now(),
-                played_cards = [s[0].shape_type]
-            )
+                # Send log report for card unlock
+                message = LogMessage(
+                    content = f"{p.name} desbloqueo su figura: ",
+                    game = game,
+                    timestamp = datetime.now(),
+                    played_cards = [s[0].shape_type]
+                )
 
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M'),
-                "cards": message.played_cards
-            })
+                broadcast_log = "LOG:" + json.dumps({
+                    "message": message.content,
+                    "time": message.timestamp.strftime('%H:%M'),
+                    "cards": message.played_cards
+                })
 
-            await manager.broadcast_in_game(game_id, broadcast_log)
+                await manager.broadcast_in_game(game_id, broadcast_log)
 
         return {
             "true_board" : game.board,
