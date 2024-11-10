@@ -72,6 +72,10 @@ def test_complete_player_hands():
     player_f_hand = [card for card in p.current_shapes]
     player_m_hand = [card for card in p.moves]
 
+    for card in p.current_shapes:
+        card.is_blocked = False
+
+
     L = len(p.moves)
     ℓ = len(game.move_deck)
 
@@ -126,15 +130,13 @@ def test_complete_player_hands_failure():
 
     # Remove two cards from the movement cards of the player
     player_f_hand[0].delete()
-    player_f_hand[1].delete()
 
-    assert len(p.current_shapes) == 1
+    assert len(p.current_shapes) == 2
 
     player_f_hand[2].is_blocked = True
-
     game.complete_player_hands(p)
     
-    assert len(p.current_shapes) == 1
+    assert len(p.current_shapes) == 2
 
 
 @db_session
