@@ -98,6 +98,10 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
                 '1': ["h1"],
                 '2': ["h2"]
             },
+            "player_f_hand_blocked": {
+                '1': [ {} ],
+                '2': [ {} ]
+            },
             "player_f_hand_ids": {
                 '1': [11],
                 '2': [21]

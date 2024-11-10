@@ -65,6 +65,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_shape_instance = mock_shape.return_value 
         mock_shape_instance.shape_type = "h1"
         mock_shape_instance.owner_hand.id = mock_player_id
+        mock_shape_instance.is_blocked = False
         
 
         mock_player_instance = mock_player.return_value
@@ -79,6 +80,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_message_instance = mock_log_message.return_value
         mock_message_instance.content = "i am a mockero, and i need a mock-hero"
         mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
+        mock_message_instance.played_cards = ["a", "card", "list"]
 
         # Setup mock game
         mock_shape.get.return_value = mock_shape_instance
@@ -162,7 +164,9 @@ def test_claim_figure_not_on_board(client, mock_game, mock_player,
     with patch('main.db_session'):
         mock_shape_instance = mock_shape.return_value 
         mock_shape_instance.shape_type = "h1"
+        mock_shape_instance.is_blocked = False
         mock_shape_instance.owner_hand.id = mock_player_id
+
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
         mock_game_instance = mock_game.return_value
@@ -202,6 +206,7 @@ def test_claim_figure_not_at_position(client, mock_game, mock_player,
         mock_shape_instance = mock_shape.return_value 
         mock_shape_instance.shape_type = "h1"
         mock_shape_instance.owner_hand.id = mock_player_id
+        mock_shape_instance.is_blocked = False
         # Setup mock player and game
         mock_player_instance = mock_player.return_value
         mock_player_instance.current_shapes = [mock_shape_instance]
