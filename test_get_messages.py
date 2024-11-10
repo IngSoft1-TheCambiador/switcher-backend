@@ -91,24 +91,18 @@ def test_get_messages(client, mock_game, mock_player, mock_message, mock_player_
         log1.content = "A ha saltado su turno. Te toca, B!"
         log1.timestamp = datetime.strptime("00:30:00", '%H:%M:%S')
         log1.game = mock_game_instance1
-        log1.player = player_a
-        log1.log = True
         log1.played_cards = []
 
         log2 = Mock(spec=LogMessage)
         log2.content = "B ha usado: &?&B ha completado la figura: "
         log2.timestamp = datetime.strptime("01:01:03", '%H:%M:%S')
         log2.game = mock_game_instance1
-        log2.player = player_b
-        log2.log = True
         log2.played_cards = ["h7", "mov2", "mov7"]
         
         log3 = Mock(spec=LogMessage)
         log3.content = "C le ha bloqueado a CBrother la figura: "
         log3.timestamp = datetime.strptime("05:55:55", '%H:%M:%S')
         log3.game = mock_game_instance2
-        log3.player = player_c
-        log3.log = True
         log3.played_cards = ["h5"]
 
         # Mock the select method to return our mock messages
@@ -130,6 +124,8 @@ def test_get_messages(client, mock_game, mock_player, mock_message, mock_player_
                                 "time": "00:00"
                             },
                             {
+                                'sender': 'Log',
+                                'color': 'log',
                                 "message": log1.content,
                                 "time": "00:30",
                                 "cards": log1.played_cards
@@ -141,6 +137,8 @@ def test_get_messages(client, mock_game, mock_player, mock_message, mock_player_
                                 "time": "01:01"
                             },
                             {
+                                'sender': 'Log',
+                                'color': 'log',
                                 "message": log2.content,
                                 "time": "01:01",
                                 "cards": log2.played_cards

@@ -37,7 +37,6 @@ class Timer(threading.Thread):
                     message = LogMessage(
                         content = f"A {player.name} se le ha acabado el tiempo. Te toca, {nextPlayer.name}!",
                         game = game,
-                        player = player,
                         timestamp = datetime.now(),
                     )
                     
@@ -802,9 +801,9 @@ async def claim_figure(game_id : int,
 
         if used_movs != '':
             cards_to_send.extend(used_movs.split(","))
-            msg_content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: ",
+            msg_content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: "
         else:
-            msg_content = f"{p.name} ha completado la figura: ",
+            msg_content = f"{p.name} ha completado la figura: "
 
         message = LogMessage(
             content = msg_content,
@@ -929,6 +928,8 @@ async def get_messages(game_id : int):
                     }
             elif class_name == 'LogMessage':
                 formatted_msg = {
+                        "sender": "Log",
+                        "color": "log",
                         "message": msg.content,
                         "time": msg.timestamp.strftime('%H:%M'),
                         "cards": msg.played_cards
