@@ -43,18 +43,26 @@ def mock_move(mocker):
     return mock_shape
 
 @pytest.fixture 
-def mock_message(mocker):
-    mock_message = mocker.patch('main.Message')
-    return mock_message
-
-@pytest.fixture 
 def mock_bool_board(mocker):
     mock_bool_board = mocker.patch("board_shapes.BooleanBoard")
     return mock_bool_board
 
+
+@pytest.fixture 
+def mock_player_message(mocker):
+    mock_player_message = mocker.patch('main.PlayerMessage')
+    return mock_player_message
+
+@pytest.fixture 
+def mock_log_message(mocker):
+    mock_log_message = mocker.patch('main.LogMessage')
+    return mock_log_message
+
+
 def test_block_figure_success(client, mock_game, mock_player, mock_manager,
                               mock_shapes_on_board, mock_shape, mock_move,
-                              mock_bool_board, mock_message):
+                              mock_bool_board,
+                              mock_log_message, mock_player_message):
     mock_game_id = 1
     mock_player_id = 10
     x, y = 0, 0
@@ -67,7 +75,6 @@ def test_block_figure_success(client, mock_game, mock_player, mock_manager,
         mock_shape_instance.shape_type = fig
         mock_shape_instance.is_blocked = False
         mock_shape.get.return_value = mock_shape_instance
-        print(mock_shape_instance.shape_type)
 
         mock_player_instance = mock_player.return_value
         mock_player_instance.shapes = []
@@ -79,7 +86,7 @@ def test_block_figure_success(client, mock_game, mock_player, mock_manager,
         mock_player.get.return_value = mock_player_instance
 
         # Mock message
-        mock_message_instance = mock_message.return_value
+        mock_message_instance = mock_log_message.return_value
         mock_message_instance.content = "i am a mockero, and i need a mock-hero"
         mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 
@@ -91,7 +98,6 @@ def test_block_figure_success(client, mock_game, mock_player, mock_manager,
         mock_game_instance.forbidden_color = Color.y
         mock_game_instance.current_player_id = mock_player_id
 
-        print(mock_game_instance.board)
 
         # Create separate instances for mock_bool_board
         mock_bool_board_instance = mock_bool_board.return_value

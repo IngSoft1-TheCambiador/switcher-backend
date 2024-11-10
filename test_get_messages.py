@@ -5,7 +5,7 @@ from unittest.mock import patch, AsyncMock, Mock
 from main import app, manager  
 from constants import STATUS, SUCCESS
 from datetime import datetime
-from orm import Player, Game, Message, PlayerMessage, LogMessage
+from orm import Player, Game, PlayerMessage, LogMessage
 
 @pytest.fixture
 def client():
@@ -31,17 +31,13 @@ def mock_log_message(mocker):
     mock_player_message = mocker.patch('main.LogMessage')
     return mock_player_message
 
-@pytest.fixture 
-def mock_message(mocker):
-    mock_message = mocker.patch('main.Message')
-    return mock_message
 
 @pytest.fixture
 def mock_manager():
     with patch.object(manager, 'remove_from_game', new_callable=AsyncMock) as mock_add:
         yield mock_add
 
-def test_get_messages(client, mock_game, mock_player, mock_message, mock_player_message, mock_log_message, mock_manager):
+def test_get_messages(client, mock_game, mock_player, mock_player_message, mock_log_message, mock_manager):
     with patch('main.db_session'):
         # Mock the Game object
         mock_game_instance1 = Mock(spec=Game)
@@ -106,8 +102,8 @@ def test_get_messages(client, mock_game, mock_player, mock_message, mock_player_
         log3.played_cards = ["h5"]
 
         # Mock the select method to return our mock messages
-        mock_message.select.return_value = [message1, message2, 
-                                            log1, log2]
+        mock_log_message.select.return_value = [log1, log2]
+        mock_player_message.select.return_value = [message1, message2]
 
         # Make the get request
         response = client.get(f"/get_messages?game_id={mock_game_instance1.id}")

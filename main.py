@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from connections import ConnectionManager
 from pony.orm import db_session, select
 from connections import ConnectionManager, get_time
-from orm import Game, Player, Shape, PlayerMessage, LogMessage, Message
+from orm import Game, Player, Shape, PlayerMessage, LogMessage
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
 from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH, PRIVATE
@@ -932,9 +932,11 @@ async def get_messages(game_id : int):
                     STATUS: FAILURE}
 
         L = []
-        messages = sorted(Message.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
+        log_messages = sorted(LogMessage.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
+        player_messages = sorted(PlayerMessage.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
+        all_messages = sorted(log_messages + player_messages, key=lambda message: message.timestamp)
 
-        for msg in messages:
+        for msg in all_messages:
             print(msg.content)
             # Ideally, we would use `isinstance`, but doesn't seem to work with 
             # db.Entities.

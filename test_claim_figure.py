@@ -43,8 +43,8 @@ def mock_move(mocker):
     return mock_shape
 
 @pytest.fixture 
-def mock_message(mocker):
-    mock_message = mocker.patch('main.Message')
+def mock_log_message(mocker):
+    mock_message = mocker.patch('main.LogMessage')
     return mock_message
 
 
@@ -55,7 +55,7 @@ def mock_bool_board(mocker):
 
 def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
                               mock_shapes_on_board, mock_shape, mock_move,
-                              mock_bool_board, mock_message):
+                              mock_bool_board, mock_log_message):
     mock_game_id = 1
     mock_player_id = 10
     x, y = 0, 0
@@ -76,7 +76,7 @@ def test_claim_figure_success(client, mock_game, mock_player, mock_manager,
         mock_player_instance.moves = movs
 
         # Mock message
-        mock_message_instance = mock_message.return_value
+        mock_message_instance = mock_log_message.return_value
         mock_message_instance.content = "i am a mockero, and i need a mock-hero"
         mock_message_instance.timestamp = datetime.strptime("00:00:00", '%H:%M:%S')
 

@@ -23,7 +23,7 @@ def mock_player(mocker):
 
 @pytest.fixture 
 def mock_message(mocker):
-    mock_message = mocker.patch('main.Message')
+    mock_message = mocker.patch('main.PlayerMessage')
     return mock_message
 
 @pytest.fixture

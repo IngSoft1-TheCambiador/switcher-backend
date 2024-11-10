@@ -20,17 +20,18 @@ def mock_player(mocker):
     mock_player = mocker.patch('main.Player')
     return mock_player
 
-@pytest.fixture 
-def mock_message(mocker):
-    mock_message = mocker.patch('main.Message')
-    return mock_message
-
 
 @pytest.fixture
 def mock_manager():
     """Mock the ConnectionManager"""
     with patch.object(manager, 'broadcast_in_game', new_callable=AsyncMock) as mock_broadcast:
         yield mock_broadcast
+
+
+@pytest.fixture 
+def mock_message(mocker):
+    mock_message = mocker.patch('main.LogMessage')
+    return mock_message
 
 @pytest.mark.asyncio
 async def test_skip_turn_success(client, mock_player, mock_game, mock_message, mock_manager):

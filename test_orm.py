@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session
-from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD, Color # Import your database object and entity classes
+from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD, Color, PlayerMessage, LogMessage # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -246,3 +246,7 @@ def test_game_cleanup():
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
 
+
+@db_session 
+def test_create_message():
+    pass
