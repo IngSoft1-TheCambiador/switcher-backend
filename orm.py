@@ -320,8 +320,13 @@ class Game(db.Entity):
             dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
             [player.moves.add( Move(move_type=card, owner=player) ) for card in dealt_move_cards]
         
-        if any ([f.is_blocked for f in player.current_shapes]):
+        if any ([f.is_blocked for f in player.current_shapes]) and len(player.current_shapes)!=1:
             return
+        
+        # it should never enter the if because the card is already unblocked in claim_figure
+        if len(player.current_shapes) == 1:
+            shape = [s for s in player.current_shapes]
+            shape[0].is_blocked = False
 
         if f_cards_to_deal > 0: 
             shapes = [s for s in player.shapes]

@@ -590,6 +590,18 @@ async def block_figure(game_id: int, player_id: int,
         if shape is None:
             return {"message": f"Figure card {fig_id} does not exist",
                     STATUS: FAILURE}
+        
+        if shape.owner_hand.id == player_id:
+            return {"message": f"Can't block your own card.",
+                    STATUS: FAILURE}
+        
+        if shape.is_blocked:
+            return {"message": f"The card is already blocked.",
+                    STATUS: FAILURE}
+        
+        if any(f.is_blocked for f in shape.owner_hand.current_shapes):
+            return {"message": f"Another card of {shape.owner_hand.id} has already been blocked.",
+                    STATUS: FAILURE}
 
         is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
@@ -601,6 +613,11 @@ async def block_figure(game_id: int, player_id: int,
         game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
         shape.is_blocked = True
+
+        msg = f"""
+            Figure {shape.shape_type} was bloqued by player {p.id}. Partial moves were permanently applied.
+            """
+        await manager.broadcast_in_game(game_id, msg)
 
         return {
             "true_board" : game.board,
@@ -665,6 +682,10 @@ async def claim_figure(game_id : int,
         if shape.owner_hand.id != player_id:
             return {"message": f"p {player_id} does not have the {shape.shape_type} card.",
                     STATUS: FAILURE}
+        
+        if shape.is_blocked:
+            return {"message": f"The card is blocked.",
+                    STATUS: FAILURE}
 
         is_valid_response = is_valid_figure(game.board, shape.shape_type, x, y)
 
@@ -676,14 +697,19 @@ async def claim_figure(game_id : int,
         game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
 
-        if len(p.current_shapes) == 0 and len(p.shapes) == 0:
-            await trigger_win_event(game, p)
-            return {"message" : f"Player {p.name} won the game"}
-
         msg = f"""
             Figure {shape.shape_type} was claimed by player {p.id}. Partial moves were permanently applied.
             """
         shape.delete()
+
+        if len(p.current_shapes) == 0 and len(p.shapes) == 0:
+            await trigger_win_event(game, p)
+            return {"message" : f"Player {p.name} won the game"}
+
+        if len(p.current_shapes) == 1:
+            s = [s for s in p.current_shapes]
+            s[0].is_blocked = False
+
         await manager.broadcast_in_game(game_id, msg)
 
         return {
