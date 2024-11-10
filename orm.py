@@ -30,14 +30,11 @@ class Shape(db.Entity):
     shape_type = Required(str)
     is_blocked = Required(bool, default=False)
     owner = Optional("Player", reverse="shapes")
-    owner_hand = Optional("Player", reverse="current_shapes") # Pony does not support owner^ = shapes_deck | current_shapes
+    owner_hand = Optional("Player", reverse="current_shapes") 
 
-class Move(db.Entity):
-    """
-    This class represents movement cards. 
-
-    Attributes
-    -----------
+class Move(db.Entity): 
+    """ 
+    This class represents movement cards. Attributes -----------
     id : int 
         The ID of the instance.
     move_type : str 
@@ -82,7 +79,7 @@ class Player(db.Entity):
     shapes = Set(Shape, reverse="owner")
     current_shapes = Set(Shape, reverse="owner_hand") 
     next = Required(int, default=0) 
-    messages = Set("Message", reverse="player")
+    messages = Set("PlayerMessage", reverse="player")
 
     @db_session
     def add_move(self, move):
@@ -169,6 +166,16 @@ class Game(db.Entity):
         on it.
     move_deck : list of strings 
         A list of strings representing movement cards not held by any player.
+    forbidden_color : Optional(str, default=Color.NULL_COLOR)
+        The forbidden color in the game.
+    player_messages : Set("PlayerMessage", reverse="game")
+        The messages sent by players in this game.
+    log_messages : Set("LogMessage", reverse="game")
+        The messages sent by the system in this game.
+    password : str 
+        The password of the game 
+    private : bool 
+        Does the game have a password?
     """
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
@@ -182,7 +189,10 @@ class Game(db.Entity):
     old_board = Optional(str, default=DEFAULT_BOARD)
     move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
     forbidden_color = Optional(str, default=Color.NULL_COLOR)
-    messages = Set("Message", reverse="game")
+    player_messages = Set("PlayerMessage", reverse="game")
+    log_messages = Set("LogMessage", reverse="game")
+    password = Optional(str, default="")
+    private = Optional(bool, default=False)
 
     @db_session
     def create_player(self, player_name):
@@ -475,31 +485,20 @@ class Game(db.Entity):
         commit()
 
 
-class Message(db.Entity):
-    """
-    This class represents chat messages in a game.
 
-    Attributes
-    ----------
-    id : int
-        The ID of the message.
-    content : str
-        The content of the message.
-    timestamp : datetime
-        The time the message was sent.
-    game : Game
-        The game to which the message belongs.
-    player : Player
-        The player who sent the message.
-    """
+class PlayerMessage(db.Entity):
     id = PrimaryKey(int, auto=True)
     content = Required(str)
-    timestamp = Required(datetime, default=datetime.now())
-    game = Required(Game, reverse='messages')
+    timestamp = Required(datetime)
+    game = Required(Game, reverse='player_messages')
     player = Required(Player, reverse='messages')
 
-
-
+class LogMessage(db.Entity):
+    id = PrimaryKey(int, auto=True)
+    content = Required(str)
+    timestamp = Required(datetime)
+    game = Required(Game, reverse='log_messages')
+    played_cards = Required(StrArray, default=[])
 
 
 

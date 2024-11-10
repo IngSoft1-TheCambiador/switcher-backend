@@ -2,15 +2,17 @@ import threading
 import time
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from connections import ConnectionManager
+from pony.orm import db_session, select
 from connections import ConnectionManager, get_time
-from pony.orm import db_session
-from orm import Game, Player, Shape, Message
+from orm import Game, Player, Shape, PlayerMessage, LogMessage
 from fastapi.middleware.cors import CORSMiddleware
 from board_shapes import shapes_on_board
-from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH
+from constants import PLAYER_ID, GAME_ID, PAGE_INTERVAL, GAME_NAME, GAME_MIN, GAME_MAX, GAMES_LIST, STATUS, MAX_MESSAGE_LENGTH, PRIVATE
 from constants import SUCCESS, FAILURE, TURN_DURATION
-from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid
+from wrappers import is_valid_figure, make_partial_moves_effective, search_is_valid, is_valid_password
 import json
+from datetime import datetime
 
 class Timer(threading.Thread):
     def __init__(self, game_id : int):
@@ -28,7 +30,24 @@ class Timer(threading.Thread):
                     player = Player.get(id = game.current_player_id)            
                     game.current_player_id = player.next
                     game.complete_player_hands(player)
-                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_ SKIP {get_time()}"))
+
+                    # Send log report
+                    nextPlayer = Player.get(id=player.next)
+
+                    message = LogMessage(
+                        content = f"A {player.name} se le ha acabado el tiempo. Te toca, {nextPlayer.name}!",
+                        game = game,
+                        timestamp = datetime.now(),
+                    )
+                    
+                    broadcast_log = "LOG:" + json.dumps({
+                    "message": message.content,
+                    "time": message.timestamp.strftime('%H:%M')
+                    })
+                asyncio.run(manager.broadcast_in_game(self.game_id,f"TIMER_SKIP {get_time()}"))
+                asyncio.run(manager.broadcast_in_game(self.game_id, broadcast_log))
+
+                
                 
             self.current_time = (self.current_time - 1) % (TURN_DURATION + 1) 
             
@@ -143,7 +162,8 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
             game_row = {GAME_ID : game.id, 
                 GAME_NAME : game.name,
                 GAME_MIN : game.min_players,
-                GAME_MAX : game.max_players}
+                GAME_MAX : game.max_players,
+                PRIVATE : game.private}
             response_data.append(game_row)
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
@@ -152,7 +172,8 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
 
 @app.put("/create_game/")
 async def create_game(socket_id : int, game_name : str, player_name : str,
-                      min_players : int =2, max_players : int =4):
+                      min_players : int =2, max_players : int = 4,
+                      password : str = ""):
     """
     This PUT endpoint creates a new `Game` object in the database. The game is
     immediately associated to (a) a player (its host or creator) and (b) a
@@ -172,10 +193,23 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
         Maximum number of players which can join the game.
     """
     with db_session:
+
+        if not is_valid_password(password):
+            return {
+                "error": f"Invalid password {password}. Valid passwords should either be the empty string (for no password), or a password of >= 8 characters with at least one number and at least one uppercase character",
+                STATUS: FAILURE
+            }
+
         new_game = Game(name=game_name, 
                         min_players=min_players,
-                        max_players=max_players
+                        max_players=max_players,
+                        password=password,
+                        private=len(password) > 0
                         )
+
+
+
+
         pid = new_game.create_player(player_name)
         new_game.owner_id = pid
         await manager.add_to_game(socket_id, new_game.id)
@@ -186,6 +220,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
             PLAYER_ID : pid,
             GAME_MAX : new_game.max_players,
             GAME_MIN : new_game.min_players,
+            "password": password,
             STATUS : SUCCESS,
         }
 
@@ -225,6 +260,19 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
                 timers[game_id].stop()
                 timers[game_id] = Timer(game_id)
                 timers[game_id].start()
+
+           # Send log report
+            message = LogMessage(
+                content = f"{p.name} abandono la partida.",
+                game = game,
+                timestamp = datetime.now(),
+            )
+
+            broadcast_log = "LOG:" + json.dumps({
+                "message": message.content,
+                "time": message.timestamp.strftime('%H:%M')
+                })
+            await manager.broadcast_in_game(game_id, broadcast_log)
         
         game.players.remove(p)
         p.delete()
@@ -308,7 +356,8 @@ async def connect(websocket: WebSocket):
 
 
 @app.post("/join_game")
-async def join_game(socket_id : int, game_id : int, player_name : str):
+async def join_game(socket_id : int, game_id : int, player_name : str,
+                    password : str = ""):
     """
     
     Creates a new player in a game. This function handles creating the `Player`
@@ -321,8 +370,10 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         ID of the websocket through which communication with the new player will occur. 
     game_id : int 
         The ID of the game where the new player will be created.
-    game_player : str 
+    player_name : str 
         The name of the created player.
+    password : str | defaults to ""
+        A password which must match that of the game
         
     """
     with db_session:
@@ -342,8 +393,9 @@ async def join_game(socket_id : int, game_id : int, player_name : str):
         if len(game.players) +1 == game.max_players:
             await manager.broadcast_in_list("GAMES LIST UPDATED")
 
-        #if player_name in [ p.name for p in game.players ]:
-            #return{"error" : "A player with this name already exists in the game"}
+        if len(game.password) > 0 and password != game.password:
+            return {"error": "Incorrect password",
+                    STATUS : FAILURE}
 
         pid = game.create_player(player_name)
         await manager.add_to_game(socket_id, game_id)
@@ -491,6 +543,21 @@ async def skip_turn(game_id : int, player_id : int):
             timers[game_id] = Timer(game_id)
             timers[game_id].start()
         await manager.broadcast_in_game(game_id, "SKIP {game_id} {player_id}")
+
+       # Send log report
+        nextPlayer = Player.get(id=player.next)
+
+        message = LogMessage(
+            content = f"{player.name} ha saltado su turno. Te toca, {nextPlayer.name}!",
+            game = game,
+            timestamp = datetime.now(),
+        )
+
+        broadcast_log = "LOG:" + json.dumps({
+            "message": message.content,
+            "time": message.timestamp.strftime('%H:%M')
+            })
+        await manager.broadcast_in_game(game_id, broadcast_log)
 
         return {
             "message" : f"Player {player_id} skipped in game {game_id}",
@@ -647,6 +714,30 @@ async def block_figure(game_id: int, player_id: int,
         make_partial_moves_effective(game, used_movs, player_id)
         shape.is_blocked = True
 
+        # Send log report of used cards
+        blocked_player = shape.owner_hand
+        cards_to_send = [shape.shape_type]
+
+        if used_movs != '':
+            cards_to_send.extend(used_movs.split(","))
+            msg_content = f"{p.name} ha usado: &?&{p.name} le ha bloqueado a {blocked_player.name} la figura: "
+        else:
+            msg_content = f"{p.name} le ha bloqueado a {blocked_player.name} la figura: "
+
+        message = LogMessage(
+            content = msg_content,
+            game = game,
+            timestamp = datetime.now(),
+            played_cards = cards_to_send
+        )
+
+        broadcast_log = "LOG:" + json.dumps({
+            "message": message.content,
+            "time": message.timestamp.strftime('%H:%M'),
+            "cards": cards_to_send
+            })
+        await manager.broadcast_in_game(game_id, broadcast_log)
+
         return {
             "true_board" : game.board,
             STATUS: SUCCESS
@@ -724,6 +815,31 @@ async def claim_figure(game_id : int,
         game.forbidden_color = game.get_block_color(x, y)
         make_partial_moves_effective(game, used_movs, player_id)
 
+
+        # Send log report of used cards
+        cards_to_send = [shape.shape_type]
+
+        if used_movs != '':
+            cards_to_send.extend(used_movs.split(","))
+            msg_content = f"{p.name} ha usado: &?&{p.name} ha completado la figura: "
+        else:
+            msg_content = f"{p.name} ha completado la figura: "
+
+        message = LogMessage(
+            content = msg_content,
+            game = game,
+            timestamp = datetime.now(),
+            played_cards = cards_to_send
+        )
+
+        broadcast_log = "LOG:" + json.dumps({
+            "message": message.content,
+            "time": message.timestamp.strftime('%H:%M'),
+            "cards": cards_to_send
+            })
+
+        await manager.broadcast_in_game(game_id, broadcast_log)
+
         if len(p.current_shapes) == 0 and len(p.shapes) == 0:
             await trigger_win_event(game, p)
             return {"message" : f"Player {p.name} won the game"}
@@ -769,15 +885,16 @@ async def send_message(game_id : int, sender_id : int, txt : str):
             return {"message": f"Game {game_id} or p {sender_id} do not exist.",
                     STATUS: FAILURE}
 
-        message = Message(
+        message = PlayerMessage(
             content = txt,
             game = game,
-            player = p
+            player = p,
+            timestamp = datetime.now()
         )
 
-        broadcast_messasge = json.dumps({
+        broadcast_messasge = "NEW CHAT MSG:" + json.dumps({
             "message": txt,
-            "sender_id": sender_id,
+            "sender_color": p.color,
             "sender_name": p.name,
             "time": message.timestamp.strftime('%H:%M')
         })
@@ -786,12 +903,71 @@ async def send_message(game_id : int, sender_id : int, txt : str):
         await manager.broadcast_in_game(game_id, broadcast_messasge)
         return {
             'message': txt,
-            'sender_id': sender_id,
+            'sender_color': p.color,
             'sender_name': p.name,
             'time': message.timestamp.strftime('%H:%M'),
             STATUS: SUCCESS
         }
-       
+
+
+@app.get("/get_messages")
+async def get_messages(game_id : int):
+    """
+
+    Gets all messages in the database and returns them ordered by their 
+    timestamp.
+    
+    Arguments 
+    ---------
+    game_id : int 
+        ID of the game where the messages we want to retrieve were sent.
+    """
+    with db_session:
+
+
+        game = Game.get(id=game_id)
+
+        if game is None:
+            return {"message": f"Game {game_id} does not exist.",
+                    STATUS: FAILURE}
+
+        L = []
+        log_messages = sorted(LogMessage.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
+        player_messages = sorted(PlayerMessage.select(lambda message: message.game.id == game_id), key=lambda message: message.timestamp)
+        all_messages = sorted(log_messages + player_messages, key=lambda message: message.timestamp)
+
+        for msg in all_messages:
+            print(msg.content)
+            # Ideally, we would use `isinstance`, but doesn't seem to work with 
+            # db.Entities.
+            class_name = msg.__class__.__name__
+            if class_name == 'PlayerMessage':
+                formatted_msg = {
+                        "sender": msg.player.name,
+                        "color": msg.player.color,
+                        "message": msg.content,
+                        "time": msg.timestamp.strftime('%H:%M')
+                    }
+            elif class_name == 'LogMessage':
+                formatted_msg = {
+                        "sender": "Log",
+                        "color": "log",
+                        "message": msg.content,
+                        "time": msg.timestamp.strftime('%H:%M'),
+                        "cards": msg.played_cards
+                    }
+            else: 
+                return{"error": "CRITICAL ERROR: Non-specific message type found among the message database.", 
+                       STATUS: FAILURE}
+            L.append(formatted_msg)
+
+
+        return {
+            'message_list': L,
+            STATUS: SUCCESS
+        }
+      
+
 @app.get("/get_current_time") 
 async def get_current_time(game_id : int):
     with db_session:
