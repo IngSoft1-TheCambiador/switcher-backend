@@ -138,6 +138,6 @@ def test_game_state_socket_not_found(client, mock_manager):
     # Assert the error response when the socket is not found
     assert response.status_code == 200
     assert response.json() == {
-        "error:": "Socket not in a game",
+        "error": "Socket not in a game",
         STATUS: FAILURE
     }

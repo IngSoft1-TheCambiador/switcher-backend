@@ -432,7 +432,7 @@ def game_state(socket_id : int):
     """
     
     if socket_id not in manager.socket_to_game.keys():
-        return({"error:" : "Socket not in a game",
+        return({"error" : "Socket not in a game",
                STATUS : FAILURE})
 
     game_id = manager.socket_to_game[socket_id]
