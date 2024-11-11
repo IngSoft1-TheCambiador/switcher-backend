@@ -213,15 +213,45 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
                 STATUS: FAILURE
             }
 
+        p = Player.get(name=player_name)
+        for game in Game.select(lambda game : p in game.players):
+                message = LogMessage(
+                    content = f"{p.name} abandono la partida.",
+                    game = game,
+                    timestamp = datetime.now(),
+                )
+
+                broadcast_log = "LOG:" + json.dumps({
+                    "message": message.content,
+                    "time": message.timestamp.strftime('%H:%M')
+                    })
+                await manager.broadcast_in_game(game.id, broadcast_log)
+                game.players.remove(p)
+
+                if (not game.is_init and game.owner_id == p.id):
+                    await manager.broadcast_in_game(game.id, "GAME CANCELLED BY OWNER")
+                    # unlink from the game all websockets remaining
+                    sockets_in_game = manager.game_to_sockets[game.id].copy()
+                
+                    for s in sockets_in_game:
+                        print(f"manager.game_to_sockets[{game.id}]: {manager.game_to_sockets[game.id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
+                        await manager.remove_from_game(s, game.id)
+
+                    game.cleanup()
+                
+                elif (len(game.players) == 1 and game.is_init):
+                # Handle: ganador por abandono
+                    for player in game.players:
+                        await trigger_win_event(game, player)
+                await manager.broadcast_in_game(game.id, f"LEAVE {game.id} {p.id}")
+                
+        p.delete() 
         new_game = Game(name=game_name, 
                         min_players=min_players,
                         max_players=max_players,
                         password=password,
                         private=len(password) > 0
                         )
-
-
-
 
         pid = new_game.create_player(player_name)
         new_game.owner_id = pid
