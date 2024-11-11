@@ -262,7 +262,7 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
                 timers[game_id].start()
 
            # Send log report
-            message = LogMessage(
+            '''message = LogMessage(
                 content = f"{p.name} abandono la partida.",
                 game = game,
                 timestamp = datetime.now(),
@@ -272,22 +272,22 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
                 "message": message.content,
                 "time": message.timestamp.strftime('%H:%M')
                 })
-            await manager.broadcast_in_game(game_id, broadcast_log)
+            await manager.broadcast_in_game(game_id, broadcast_log)'''
         
-        game.players.remove(p)
+        '''game.players.remove(p)
         p.delete()
-        await manager.remove_from_game(socket_id, game_id)
+        await manager.remove_from_game(socket_id, game_id)'''
 
         if (not game.is_init and len(game.players) +1 == game.max_players):
             await manager.broadcast_in_list("GAMES LIST UPDATED")
         
-        if ((len(game.players) == 1) and game.is_init):
+        '''if ((len(game.players) == 1) and game.is_init):
             # Handle: ganador por abandono
             for p in game.players:
-                await trigger_win_event(game, p)
+                await trigger_win_event(game, p)'''
 
         # Cancel game if owner leaves
-        elif (not game.is_init and game.owner_id == player_id):
+        '''if (not game.is_init and game.owner_id == player_id):
             await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
             # unlink from the game all websockets remaining
             sockets_in_game = manager.game_to_sockets[game_id].copy()
@@ -296,10 +296,9 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
                 print(f"manager.game_to_sockets[{game_id}]: {manager.game_to_sockets[game_id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
                 await manager.remove_from_game(s, game_id)
 
-            game.cleanup()
+            game.cleanup()'''
 
-        else:
-            await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
+        await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
         return(
             {GAME_ID : game_id, 
@@ -357,7 +356,7 @@ async def connect(websocket: WebSocket):
 
 @app.post("/join_game")
 async def join_game(socket_id : int, game_id : int, player_name : str,
-                    password : str = ""):
+                    password : str = "", player_id : int = -1):
     """
     
     Creates a new player in a game. This function handles creating the `Player`
@@ -396,7 +395,49 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
         if len(game.password) > 0 and password != game.password:
             return {"error": "Incorrect password",
                     STATUS : FAILURE}
+            
+        if player_id != -1:
+            p = Player.get(id=player_id)
+            if p in game.players:
+                previous = Player.get(next = p.next)
+                previous.next = p
+            else:
+                message = LogMessage(
+                    content = f"{p.name} abandono la partida.",
+                    game = game,
+                    timestamp = datetime.now(),
+                )
 
+                broadcast_log = "LOG:" + json.dumps({
+                    "message": message.content,
+                    "time": message.timestamp.strftime('%H:%M')
+                    })
+                await manager.broadcast_in_game(game_id, broadcast_log)
+                game.players.remove(p)
+                p.delete()
+                await manager.remove_from_game(socket_id, game_id)
+
+                if (not game.is_init and len(game.players) +1 == game.max_players):
+                    await manager.broadcast_in_list("GAMES LIST UPDATED")
+            
+                if ((len(game.players) == 1) and game.is_init):
+                # Handle: ganador por abandono
+                    for p in game.players:
+                        await trigger_win_event(game, p)
+
+                # Cancel game if owner leaves
+                if (not game.is_init and game.owner_id == player_id):
+                    await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
+                    # unlink from the game all websockets remaining
+                    sockets_in_game = manager.game_to_sockets[game_id].copy()
+                    
+                    for s in sockets_in_game:
+                        print(f"manager.game_to_sockets[{game_id}]: {manager.game_to_sockets[game_id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
+                        await manager.remove_from_game(s, game_id)
+
+                    game.cleanup()
+                await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
+            
         pid = game.create_player(player_name)
         await manager.add_to_game(socket_id, game_id)
         return ({
@@ -405,7 +446,7 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
                 "player_names": [p.name for p in game.players],
                 STATUS: SUCCESS
                 })
-
+    
 @app.get("/game_state")
 def game_state(socket_id : int):
     """
