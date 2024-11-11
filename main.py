@@ -397,11 +397,6 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
             return {"error": "Game not found",
                     STATUS : FAILURE}
         
-        # Check if the game has enough room for another player
-        if len(game.players) >= game.max_players:
-            return {"error": "Game is already full",
-                    STATUS: FAILURE}
-        
         if len(game.players) +1 == game.max_players:
             await manager.broadcast_in_list("GAMES LIST UPDATED")
 
@@ -412,53 +407,76 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
         if player_id != -1:
             p = Player.get(id=player_id)
             if p in game.players:
-                previous = Player.get(next = p.next)
-                previous.next = p
-            else:
-                message = LogMessage(
-                    content = f"{p.name} abandono la partida.",
-                    game = game,
-                    timestamp = datetime.now(),
-                )
-
-                broadcast_log = "LOG:" + json.dumps({
-                    "message": message.content,
-                    "time": message.timestamp.strftime('%H:%M')
+                for x in Player.select(lambda x: x.next == p.next and x.id != p.id):
+                    x.next = p.id
+                await manager.add_to_game(socket_id, game_id)
+                return ({
+                    "player_id": player_id,
+                    "owner_id": game.owner_id,
+                    "player_names": [p.name for p in game.players],
+                    STATUS: SUCCESS
                     })
-                await manager.broadcast_in_game(game_id, broadcast_log)
-                game.players.remove(p)
-                p.delete()
-                await manager.remove_from_game(socket_id, game_id)
-
-                if (not game.is_init and len(game.players) +1 == game.max_players):
-                    await manager.broadcast_in_list("GAMES LIST UPDATED")
-            
-                if ((len(game.players) == 1) and game.is_init):
-                # Handle: ganador por abandono
-                    for p in game.players:
-                        await trigger_win_event(game, p)
-
-                # Cancel game if owner leaves
-                if (not game.is_init and game.owner_id == player_id):
-                    await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
-                    # unlink from the game all websockets remaining
-                    sockets_in_game = manager.game_to_sockets[game_id].copy()
+            else:
+                 # Check if the game has enough room for another player
+                if len(game.players) >= game.max_players:
+                    return {"error": "Game is already full",
+                            STATUS: FAILURE}
                     
-                    for s in sockets_in_game:
-                        print(f"manager.game_to_sockets[{game_id}]: {manager.game_to_sockets[game_id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
-                        await manager.remove_from_game(s, game_id)
+                for x in Game.select(lambda x : p in x.players):
+                    message = LogMessage(
+                        content = f"{p.name} abandono la partida.",
+                        game = x,
+                        timestamp = datetime.now(),
+                    )
 
-                    game.cleanup()
-                await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
-            
-        pid = game.create_player(player_name)
-        await manager.add_to_game(socket_id, game_id)
-        return ({
-                "player_id": pid,
-                "owner_id": game.owner_id,
-                "player_names": [p.name for p in game.players],
-                STATUS: SUCCESS
-                })
+                    broadcast_log = "LOG:" + json.dumps({
+                        "message": message.content,
+                        "time": message.timestamp.strftime('%H:%M')
+                        })
+                    await manager.broadcast_in_game(x.id, broadcast_log)
+                    x.players.remove(p)
+                    p.delete()
+
+                    if (not x.is_init and x.owner_id == player_id):
+                        await manager.broadcast_in_game(x.id, "GAME CANCELLED BY OWNER")
+                        # unlink from the game all websockets remaining
+                        sockets_in_game = manager.game_to_sockets[x.id].copy()
+                    
+                        for s in sockets_in_game:
+                            print(f"manager.game_to_sockets[{x.id}]: {manager.game_to_sockets[x.id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
+                            await manager.remove_from_game(s, x.id)
+
+                        x.cleanup()
+                    
+                    elif ((len(x.players) == 1) and x.is_init):
+                    # Handle: ganador por abandono
+                        for p in x.players:
+                            await trigger_win_event(x, p)
+                    await manager.broadcast_in_game(x.id, "LEAVE {game_id} {player_id}")
+                
+                pid = game.create_player(player_name)
+                await manager.add_to_game(socket_id, game_id)
+                return ({
+                        "player_id": pid,
+                        "owner_id": game.owner_id,
+                        "player_names": [p.name for p in game.players],
+                        "is_init" : game.is_init,
+                        STATUS: SUCCESS
+                        })
+                
+        else:
+             # Check if the game has enough room for another player
+            if len(game.players) >= game.max_players:
+                return {"error": "Game is already full",
+                        STATUS: FAILURE}
+            pid = game.create_player(player_name)
+            await manager.add_to_game(socket_id, game_id)
+            return ({
+                    "player_id": pid,
+                    "owner_id": game.owner_id,
+                    "player_names": [p.name for p in game.players],
+                    STATUS: SUCCESS
+                    })
     
 @app.get("/game_state")
 def game_state(socket_id : int):
