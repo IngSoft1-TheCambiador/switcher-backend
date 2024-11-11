@@ -245,7 +245,7 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
                         await trigger_win_event(game, player)
                 await manager.broadcast_in_game(game.id, f"LEAVE {game.id} {p.id}")
                 
-        p.delete() 
+                p.delete() 
         new_game = Game(name=game_name, 
                         min_players=min_players,
                         max_players=max_players,
