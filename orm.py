@@ -21,6 +21,8 @@ class Shape(db.Entity):
         A description of the kind of figure the instance is. 
     is_blocked : bool 
         Is the figure blocked? 
+    was_blocked : bool
+        If the figure has been unblocked but not used
     (optional) owner : Player
         The Player who owns the card. 
     (optional) owner_hand : Player 
@@ -29,6 +31,7 @@ class Shape(db.Entity):
     id = PrimaryKey(int, auto=True)
     shape_type = Required(str)
     is_blocked = Required(bool, default=False)
+    was_blocked = Required(bool, default=False)
     owner = Optional("Player", reverse="shapes")
     owner_hand = Optional("Player", reverse="current_shapes") 
 
@@ -332,14 +335,15 @@ class Game(db.Entity):
         if m_cards_to_deal > 0:
             dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
             [player.moves.add( Move(move_type=card, owner=player) ) for card in dealt_move_cards]
-        
-        if any ([f.is_blocked for f in player.current_shapes]) and len(player.current_shapes)!=1:
-            return
-        
-        # it should never enter the if because the card is already unblocked in claim_figure
+
         if len(player.current_shapes) == 1:
             shape = [s for s in player.current_shapes]
-            shape[0].is_blocked = False
+            if shape[0].is_blocked:
+                shape[0].is_blocked = False
+                shape[0].was_blocked = True
+
+        if any( [(f.is_blocked or f.was_blocked) for f in player.current_shapes] ):
+            return
 
         if f_cards_to_deal > 0: 
             shapes = [s for s in player.shapes]
