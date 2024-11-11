@@ -117,7 +117,7 @@ def list_games(page : int =1):
 
 
 @app.get("/search_games")
-def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
+def search_games(player_id : int, page : int =1, text : str ="", min : str ="", max : str =""):
     """
     This GET endpoint is equivalent to list_games but it filters the games
     that include <text> in their name, ignoring the letter case
@@ -155,15 +155,28 @@ def search_games(page : int =1, text : str ="", min : str ="", max : str =""):
                 and (min == "" or game.min_players == int(min))
                 and (max == "" or game.max_players == int(max))
         ]
+        
+        response_data = []
+        
+        for game in all_games:
+            p = Player.get(id=player_id)
+            if p in game.players:
+                response_data.append({GAME_ID : game.id, 
+                    GAME_NAME : game.name,
+                    GAME_MIN : game.min_players,
+                    GAME_MAX : game.max_players,
+                    PRIVATE : game.private,
+                    "active" : True})
+            
 
         games = games[begin:end]
-        response_data = []
         for game in games:
             game_row = {GAME_ID : game.id, 
                 GAME_NAME : game.name,
                 GAME_MIN : game.min_players,
                 GAME_MAX : game.max_players,
-                PRIVATE : game.private}
+                PRIVATE : game.private,
+                "active" : False}
             response_data.append(game_row)
         return { GAMES_LIST : response_data,
                 STATUS : SUCCESS }
@@ -252,8 +265,8 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
         
         
         if (game.is_init):
-            previous = Player.get(next=p.id)
-            previous.next = p.next
+            for x in Player.select(lambda x: x.next == p.id and x.id != p.id):
+                x.next = p.next
         
             if game.current_player_id == p.id:
                 game.current_player_id = p.next
@@ -275,8 +288,8 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             await manager.broadcast_in_game(game_id, broadcast_log)'''
         
         '''game.players.remove(p)
-        p.delete()
-        await manager.remove_from_game(socket_id, game_id)'''
+        p.delete()'''
+        await manager.remove_from_game(socket_id, game_id)
 
         if (not game.is_init and len(game.players) +1 == game.max_players):
             await manager.broadcast_in_list("GAMES LIST UPDATED")
