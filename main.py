@@ -714,7 +714,7 @@ async def block_figure(game_id: int, player_id: int,
             return {"message": f"Another card of {shape.owner_hand.id} has already been blocked.",
                     STATUS: FAILURE}
         
-        if len(p.current_shapes) == 1:
+        if len(shape.owner_hand.current_shapes) == 1:
             return {"message": f"Can't block the last card of the hand.",
                     STATUS: FAILURE}
 
