@@ -142,11 +142,12 @@ def search_games(player_id : int, page : int =1, text : str ="", min : str ="", 
                     STATUS: FAILURE}
 
     with db_session:
+        p = Player.get(id=player_id)
         begin = PAGE_INTERVAL * (page - 1)
         end = PAGE_INTERVAL * page
         all_games = Game.select().order_by(Game.id)
         games = [game for game in all_games
-            if not game.is_init and len(game.players) < game.max_players
+            if not game.is_init and len(game.players) < game.max_players and p not in game.players
         ]
 
         # Filter the list of games
@@ -159,7 +160,6 @@ def search_games(player_id : int, page : int =1, text : str ="", min : str ="", 
         response_data = []
         
         for game in all_games:
-            p = Player.get(id=player_id)
             if p in game.players:
                 response_data.append({GAME_ID : game.id, 
                     GAME_NAME : game.name,
@@ -257,60 +257,8 @@ async def leave_game(socket_id : int, game_id : int, player_id : int):
             return {"message": f"Game {game_id} does not exist.",
                     STATUS : FAILURE }
         
-        p = next(( p for p in game.players if p.id == player_id ), None)
-        
-        if p is None:
-            return {"message": f"Player {player_id} is not in game {game_id}.",
-                    STATUS : FAILURE }
-        
-        
-        if (game.is_init):
-            for x in Player.select(lambda x: x.next == p.id and x.id != p.id):
-                x.next = p.next
-        
-            if game.current_player_id == p.id:
-                game.current_player_id = p.next
-                timers[game_id].stop()
-                timers[game_id] = Timer(game_id)
-                timers[game_id].start()
-
-           # Send log report
-            '''message = LogMessage(
-                content = f"{p.name} abandono la partida.",
-                game = game,
-                timestamp = datetime.now(),
-            )
-
-            broadcast_log = "LOG:" + json.dumps({
-                "message": message.content,
-                "time": message.timestamp.strftime('%H:%M')
-                })
-            await manager.broadcast_in_game(game_id, broadcast_log)'''
-        
-        '''game.players.remove(p)
-        p.delete()'''
         await manager.remove_from_game(socket_id, game_id)
-
-        if (not game.is_init and len(game.players) +1 == game.max_players):
-            await manager.broadcast_in_list("GAMES LIST UPDATED")
-        
-        '''if ((len(game.players) == 1) and game.is_init):
-            # Handle: ganador por abandono
-            for p in game.players:
-                await trigger_win_event(game, p)'''
-
-        # Cancel game if owner leaves
-        '''if (not game.is_init and game.owner_id == player_id):
-            await manager.broadcast_in_game(game_id, "GAME CANCELLED BY OWNER")
-            # unlink from the game all websockets remaining
-            sockets_in_game = manager.game_to_sockets[game_id].copy()
-            
-            for s in sockets_in_game:
-                print(f"manager.game_to_sockets[{game_id}]: {manager.game_to_sockets[game_id]}  (tomo socket {s}), socket_to_game: {manager.socket_to_game[s]}")
-                await manager.remove_from_game(s, game_id)
-
-            game.cleanup()'''
-
+    
         await manager.broadcast_in_game(game_id, "LEAVE {game_id} {player_id}")
 
         return(
@@ -407,8 +355,6 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
         if player_id != -1:
             p = Player.get(id=player_id)
             if p in game.players:
-                for x in Player.select(lambda x: x.next == p.next and x.id != p.id):
-                    x.next = p.id
                 await manager.add_to_game(socket_id, game_id)
                 return ({
                     "player_id": player_id,
@@ -453,6 +399,7 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
                         for p in x.players:
                             await trigger_win_event(x, p)
                     await manager.broadcast_in_game(x.id, "LEAVE {game_id} {player_id}")
+                    
                 
                 pid = game.create_player(player_name)
                 await manager.add_to_game(socket_id, game_id)
@@ -717,6 +664,7 @@ async def start_game(game_id : int):
         game = Game.get(id=game_id)
         game.initialize()
         await manager.broadcast_in_game(game_id, "INITIALIZED")
+        await manager.broadcast_in_list(get_time())
         timers[game_id] = Timer(game_id)
         timers[game_id].start()
         return {"message" : f"Starting {game_id}",
