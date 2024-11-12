@@ -226,6 +226,16 @@ async def create_game(socket_id : int, game_name : str, player_name : str,
                     "time": message.timestamp.strftime('%H:%M')
                     })
                 await manager.broadcast_in_game(game.id, broadcast_log)
+                if (game.is_init):
+                    previous = Player.get(next=p.id)
+                    previous.next = p.next
+                
+                    if game.current_player_id == p.id:
+                        game.current_player_id = p.next
+                        timers[game.id].stop()
+                        timers[game.id] = Timer(game.id)
+                        timers[game.id].start()
+                
                 game.players.remove(p)
 
                 if (not game.is_init and game.owner_id == p.id):
@@ -410,6 +420,17 @@ async def join_game(socket_id : int, game_id : int, player_name : str,
                         "time": message.timestamp.strftime('%H:%M')
                         })
                     await manager.broadcast_in_game(x.id, broadcast_log)
+                    
+                    if (x.is_init):
+                        previous = Player.get(next=p.id)
+                        previous.next = p.next
+                    
+                        if x.current_player_id == p.id:
+                            x.current_player_id = p.next
+                            timers[x.id].stop()
+                            timers[x.id] = Timer(game_id)
+                            timers[x.id].start()
+                            
                     x.players.remove(p)
                     p.delete()
 
