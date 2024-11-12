@@ -12,3 +12,5 @@ pytest-cov
 pytest-mock
 numpy
 scikit-image
+pynvim
+pyright

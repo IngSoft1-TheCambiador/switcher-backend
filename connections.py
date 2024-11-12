@@ -98,7 +98,7 @@ class ConnectionManager:
         del self.sockets_by_id[socket_id]
         self.socket_to_game[socket_id] = None
         del self.socket_to_game[socket_id]
-
+        
     async def send_personal_message(self, socket_id : int, message : str) -> None:
         """ 
 
@@ -207,15 +207,20 @@ class ConnectionManager:
         game_id : int 
             The ID of the game from which to remove the websocket.
         """
+
+        # If this game is not in the G : Game ↦ Sockets mapping, add it as a null mapping;
+        # i.e. define G(game) = []
         if game_id not in self.game_to_sockets.keys():
             self.game_to_sockets[game_id] = []
-            print("EL PROBLEMA NO ES GAME_TO_SOKTS")
-        self.game_to_sockets[game_id].append(socket_id)
-        # This is linear in the number of players currently not in a game, so we should make it a set instead of a list
-        self.socket_to_game[socket_id] = game_id
-        if socket_id in self.game_to_sockets[LISTING_ID]:
-            self.game_to_sockets[LISTING_ID].remove(socket_id)
-        print("EL PROBLEMA NO ES SOCKET_TO_GAME")
+
+        # Check this to avoid adding the same socket twice
+        if socket_id not in self.game_to_sockets[game_id]:
+            self.game_to_sockets[game_id].append(socket_id)
+            self.socket_to_game[socket_id] = game_id
+            # Remove the socket from the list of sockets that aren't in any game
+            if socket_id in self.game_to_sockets[LISTING_ID]:
+                self.game_to_sockets[LISTING_ID].remove(socket_id)
+
         await self.broadcast_in_list(f"{PULL_GAMES} {get_time()}") # In case a game was filled
         #await self.trigger_updates(game_id)
         await self.broadcast_in_game(game_id, f"{PULL_GAMES} {get_time()}")

@@ -1,7 +1,7 @@
 # conftest.py
 import pytest
 from pony.orm import db_session
-from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD  # Import your database object and entity classes
+from orm import db, Game, Player, Shape, Move, DEFAULT_BOARD, Color, PlayerMessage, LogMessage # Import your database object and entity classes
 
 # Para referencia de qué hace esto, ver: 
 # https://stackoverflow.com/questions/57639915/pony-orm-tear-down-in-testing
@@ -27,6 +27,7 @@ def test_create_game():
     game = Game(name="Test Game")
     assert game.name == "Test Game"
     assert game.is_init is False
+    assert game.forbidden_color == Color.NULL_COLOR
     assert len(game.players) == 0
 
 @db_session
@@ -49,7 +50,7 @@ def test_turn_and_color_setting():
     pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
 
     # Assert no player has a color set
-    assert all( [Player[id].color == "" for id in pids] )
+    assert all( [Player[id].color == Color.NULL_COLOR for id in pids] )
     # Assert no player has cards
     game.set_turns_and_colors()
     assert not any( [Player[id].color == "" for id in pids] )
@@ -70,6 +71,10 @@ def test_complete_player_hands():
 
     player_f_hand = [card for card in p.current_shapes]
     player_m_hand = [card for card in p.moves]
+
+    for card in p.current_shapes:
+        card.is_blocked = False
+
 
     L = len(p.moves)
     ℓ = len(game.move_deck)
@@ -108,6 +113,30 @@ def test_complete_player_hands():
     assert len(p.current_shapes) == 2 
     assert len(p.shapes) == 0
 
+
+@db_session
+def test_complete_player_hands_failure():
+
+
+    game = Game(name = "asdaosjd")
+
+    pids = [game.create_player(name) for name in ["Chipá", "Carpincho", "Tucán"]]
+    game.initialize()
+
+
+    p = Player[pids[0]]
+
+    player_f_hand = [card for card in p.current_shapes]
+
+    # Remove two cards from the movement cards of the player
+    player_f_hand[0].delete()
+
+    assert len(p.current_shapes) == 2
+
+    player_f_hand[2].is_blocked = True
+    game.complete_player_hands(p)
+    
+    assert len(p.current_shapes) == 2
 
 
 @db_session
@@ -218,3 +247,8 @@ def test_game_cleanup():
     game.cleanup()
     all_names = set([game.name for game in Game.select()])
     assert game_name not in all_names
+
+
+@db_session 
+def test_create_message():
+    pass

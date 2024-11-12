@@ -1,10 +1,13 @@
 from random import shuffle, sample
 from pony.orm import Database, PrimaryKey, Required, Set, Optional, StrArray
 from pony.orm import db_session, commit
+from enum import StrEnum
+from datetime import datetime
 
 db = Database()
 
 DEFAULT_BOARD = "r" * 9 + "b" * 9 + "g" * 9 + "y" * 9
+Color = StrEnum("Color", ["r", "b", "g", "y", "NULL_COLOR"])
 
 class Shape(db.Entity):
     """
@@ -18,6 +21,8 @@ class Shape(db.Entity):
         A description of the kind of figure the instance is. 
     is_blocked : bool 
         Is the figure blocked? 
+    was_blocked : bool
+        If the figure has been unblocked but not used
     (optional) owner : Player
         The Player who owns the card. 
     (optional) owner_hand : Player 
@@ -26,15 +31,13 @@ class Shape(db.Entity):
     id = PrimaryKey(int, auto=True)
     shape_type = Required(str)
     is_blocked = Required(bool, default=False)
+    was_blocked = Required(bool, default=False)
     owner = Optional("Player", reverse="shapes")
-    owner_hand = Optional("Player", reverse="current_shapes") # Pony does not support owner^ = shapes_deck | current_shapes
+    owner_hand = Optional("Player", reverse="current_shapes") 
 
-class Move(db.Entity):
-    """
-    This class represents movement cards. 
-
-    Attributes
-    -----------
+class Move(db.Entity): 
+    """ 
+    This class represents movement cards. Attributes -----------
     id : int 
         The ID of the instance.
     move_type : str 
@@ -72,13 +75,14 @@ class Player(db.Entity):
         The ID of the player who follows this player in the turn order.
     """
     id = PrimaryKey(int, auto=True)
-    color = Optional(str)
+    color = Optional(str, default=Color.NULL_COLOR)
     name = Required(str)
     game = Required("Game", reverse="players")
     moves = Set("Move", reverse="owner")
     shapes = Set(Shape, reverse="owner")
     current_shapes = Set(Shape, reverse="owner_hand") 
     next = Required(int, default=0) 
+    messages = Set("PlayerMessage", reverse="player")
 
     @db_session
     def add_move(self, move):
@@ -165,6 +169,16 @@ class Game(db.Entity):
         on it.
     move_deck : list of strings 
         A list of strings representing movement cards not held by any player.
+    forbidden_color : Optional(str, default=Color.NULL_COLOR)
+        The forbidden color in the game.
+    player_messages : Set("PlayerMessage", reverse="game")
+        The messages sent by players in this game.
+    log_messages : Set("LogMessage", reverse="game")
+        The messages sent by the system in this game.
+    password : str 
+        The password of the game 
+    private : bool 
+        Does the game have a password?
     """
     id = PrimaryKey(int, auto=True) 
     name = Required(str)
@@ -177,6 +191,11 @@ class Game(db.Entity):
     board = Required(str, default=DEFAULT_BOARD)
     old_board = Optional(str, default=DEFAULT_BOARD)
     move_deck = Optional(StrArray, default = [f"mov{i}" for i in range(1, 8)] * 7)
+    forbidden_color = Optional(str, default=Color.NULL_COLOR)
+    player_messages = Set("PlayerMessage", reverse="game")
+    log_messages = Set("LogMessage", reverse="game")
+    password = Optional(str, default="")
+    private = Optional(bool, default=False)
 
     @db_session
     def create_player(self, player_name):
@@ -209,7 +228,7 @@ class Game(db.Entity):
     
     @db_session
     def set_turns_and_colors(self):
-        colors = ["r", "g", "b", "y"]
+        colors = [Color.r, Color.b, Color.y, Color.g]
         players = [p for p in self.players]
         shuffle(players)
         shuffle(colors)
@@ -316,7 +335,15 @@ class Game(db.Entity):
         if m_cards_to_deal > 0:
             dealt_move_cards = Game.sample_cards(m_cards_to_deal, self.move_deck)
             [player.moves.add( Move(move_type=card, owner=player) ) for card in dealt_move_cards]
-            
+
+        if len(player.current_shapes) == 1:
+            shape = [s for s in player.current_shapes]
+            if shape[0].is_blocked:
+                shape[0].is_blocked = False
+                shape[0].was_blocked = True
+
+        if any( [(f.is_blocked or f.was_blocked) for f in player.current_shapes] ):
+            return
 
         if f_cards_to_deal > 0: 
             shapes = [s for s in player.shapes]
@@ -465,6 +492,32 @@ class Game(db.Entity):
         # Call Pony's delete for the Game instance
         self.delete()
         commit()
+
+
+
+class PlayerMessage(db.Entity):
+    id = PrimaryKey(int, auto=True)
+    content = Required(str)
+    timestamp = Required(datetime)
+    game = Required(Game, reverse='player_messages')
+    player = Required(Player, reverse='messages')
+
+class LogMessage(db.Entity):
+    id = PrimaryKey(int, auto=True)
+    content = Required(str)
+    timestamp = Required(datetime)
+    game = Required(Game, reverse='log_messages')
+    played_cards = Required(StrArray, default=[])
+
+
+
+
+
+
+
+
+
+
 
 db.bind("sqlite", "switcher_storage.sqlite", create_db=True)
 db.generate_mapping(create_tables=True)

@@ -47,6 +47,7 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_game_instance.board = DEFAULT_BOARD
         mock_game_instance.old_board = DEFAULT_BOARD
         mock_game_instance.move_deck = ["mov1", "mov2"]
+        mock_game_instance.forbidden_color = "RED"
         mock_game.get.return_value = mock_game_instance
 
         # Mock the Player instances and their attributes
@@ -57,6 +58,8 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_player1.shapes = [MagicMock(shape_type="s1")]
         mock_player1.current_shapes = [MagicMock(shape_type="h1")]
         mock_player1.moves = [MagicMock(move_type="mov1")]
+        mock_player1.shapes[0].id = 10
+        mock_player1.current_shapes[0].id = 11
 
         mock_player2 = MagicMock()
         mock_player2.id = 2
@@ -65,6 +68,8 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
         mock_player2.shapes = [MagicMock(shape_type="s2")]
         mock_player2.current_shapes = [MagicMock(shape_type="h2")]
         mock_player2.moves = [MagicMock(move_type="mov2")]
+        mock_player2.shapes[0].id = 20
+        mock_player2.current_shapes[0].id = 21
 
         # Assign players to the game
         mock_game_instance.players = [mock_player1, mock_player2]
@@ -93,6 +98,18 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
                 '1': ["h1"],
                 '2': ["h2"]
             },
+            "player_f_hand_blocked": {
+                '1': [ {} ],
+                '2': [ {} ]
+            },
+            "player_f_hand_ids": {
+                '1': [11],
+                '2': [21]
+            },
+            "player_f_deck_ids": {
+                '1': [10],
+                '2': [20]
+            },
             "player_m_cards": {
                 '1': ["mov1"],
                 '2': ["mov2"]
@@ -105,6 +122,7 @@ def test_game_state(client, mock_game, mock_player, mock_manager):
             "old_board": DEFAULT_BOARD,
             "move_deck": ["mov1", "mov2"],
             "highlighted_squares": "000000000000000000000000000000000000",
+            "forbidden_color": "RED",
             STATUS: SUCCESS
         }
 
@@ -124,6 +142,6 @@ def test_game_state_socket_not_found(client, mock_manager):
     # Assert the error response when the socket is not found
     assert response.status_code == 200
     assert response.json() == {
-        "error:": "Socket not in a game",
+        "error": "Socket not in a game",
         STATUS: FAILURE
     }
