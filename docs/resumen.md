@@ -122,10 +122,8 @@ es, dado un jugador, revisa si su mano de movimientos o su mano de figura están
 incompleta. Si lo están, les reparte cartas del mazo de movimientos (que es
 global del juego) o del mazo de figuras del jugador hasta completar su mano. 
 
-La función `complete_player_hands` chequea que el jugador no tenga figuras
-bloqueadas: si las tiene, no le reparte cartas de figuras, excepto en el caso
-en el que le queda sólo la carta de figura bloqueada. En ese caso desbloquea la
-figura y completa su mano.
+La función `complete_player_hands` chequea que el jugador no tenga una figura
+bloqueada: si la tiene, no le reparte cartas de figuras.
 
 `complete_player_hands` se llama al final de cada turno, pero también se llama
 al inicializar la partida, justo después de `deal_cards_randomly`. Su única
@@ -184,6 +182,50 @@ movimientos o termina el turno sin reclamar o bloquear figuras, regresa al
 Cuando los movimientos parciales de un jugador se hacen efectivos (e.g. reclama
 una carta de figura), simplemente se hace `game.old_board = game.actual_board`,
 creando el nuevo "checkpoint".
+
+## ¿Qué sucede cuando se refresca la aplicación?
+
+Cuando se refresca la página, la conexión por websocket previamente establecida se corta lo cual triggerea el `except WebSocketDisconnect` en el endpoint `ws/connect`. El `socket_id` del usuario es eliminado del back, junto a todas sus asociaciones. Luego, el front vuelve a conectarse mediante `ws/connect/`, con lo que se envía un nuevo `socket_id`. Si el usuario no estaba dentro de una partida no hay nada mas que hacer. Caso contrario, el front debe hacer un request al endpoint `/relink_to_game`, que añade el nuevo `socket_id` a la partida en la que está el usuario.
+Esto es necesario pues por defecto las nuevas conexiones de websocket son registradas como conexiones que estan en la lista de partidas.
+
+## ¿Cómo se filtran las partidas activas?
+
+En el enpoint `search_games`, se revisan todas las partidas. Aquella que tenga al jugador que hace el request es marcada como activa. Sabemos que a lo sumo puede haber una sola partida así por la solución de compromiso. El resto de partidas son marcadas como no activas.
+
+```python
+for game in all_games:
+    if p in game.players:
+        response_data.append({GAME_ID : game.id, 
+            GAME_NAME : game.name,
+            GAME_MIN : game.min_players,
+            GAME_MAX : game.max_players,
+            PRIVATE : game.private,
+            "active" : True})
+```
+
+## Partidas activas
+
+El endpoint `leave_game` remueve el `socket_id` del jugador que abandona de la lista de `socket_id`'s de la partida y lo registra en la lista de websockets que estan en el lobby. No se eliminan los datos de la partida asociados al jugador ya que el mismo puede volver a entrar a la partida. Es el endpoint `join_game` el que se encarga de eliminar efectivamente a un jugador de una partida. El endpoint `join_game` tiene un parámetro `player_id = -1` por defecto, el cual permite distinguir si el usuario ya está en una partida (si se pasa un `player_id != -1`) o no. Tenemos los siguientes casos:
+
+- El usuario ya esta en una partida
+    - **El usuario se une a la partida en la que ya está (su partida activa)**. Solo hay que volver a registrar el `socket_id` en la partida.
+    - **El usuario se une a una partida distinta de la que ya está**. Esto implica que el usuario abandona la partida en la que ya está, por lo que se debe tener en cuenta toda la lógica asociada:
+        - reestructurar los turnos
+        - reiniciar el timer si era el turno del jugador que abandona
+        - eliminar los datos del jugador que abandona de la partida
+        - triggerear win por abandono si solo queda un jugador
+        - si la partida no está iniciada y el jugador era su owner, cancelar la partida
+- El usuario no está en una partida. Se procede de manera normal con la creación de un nuevo jugador y se lo añade a la partida correspondiente.
+
+Tambíen se considera que un jugador que sale de una partida y crea otra abandona la partida  en la que estaba. Esto es manejado en el endpoint `create_game`.
+
+## Timer
+
+El temporizador en el back se implementa con la clase `Timer` que hereda de `Thread`, es decir, es un hilo aparte. Hay un objeto `Timer` distinto para cada partida. El comportamiento de un `Timer` consiste en una cuenta regresiva haciendo `self.current_time = (self.current_time - 1) % (TURN_DURATION + 1)` cada 1 segundo. Cuando se llega a 0, se ejecuta una lógica similar al del endpoint `skip_turn`. 
+Para reiniciar el timer de una partida en el back (por ejemplo, cuando un jugador pasa su turno antes de que se termine su tiempo) se usa el método `stop()` de la clase `Timer`, el cual finaliza la ejecución hilo. Luego, se crea e inicializa un nuevo objeto Timer para esa partida. Creo que esta es de las soluciones más limpias y fáciles para implementar el reinicio del temporizador.
+El front tiene su propio temporizador el cual refleja aproximadamente al temporizador del back, con fines meramente visuales. El endpoint `get_current_time` devuelve el `current_time` del objeto `Timer` asociado a una partida. Es utilizado por el front en ciertas ocaciones para sincronizar su temporizador con el del back.
+
+
 
 
 
